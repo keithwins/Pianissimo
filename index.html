@@ -1895,12 +1895,12 @@ function withAudio(fn){
   if (!ensureCtx()) { setStatus("This browser has no Web Audio, so it can't play sound."); return; }
   const missing = [...new Set(P.notes.map(n => n.midi))].filter(m => !bufs[m]);
   if (!missing.length && clickHi) { fn(); return; }
-  if (tuning) return;
+  if (tuning) { withAudio.q = fn; return; }      // asked for while tuning: do it when tuning ends, not never
   tuning = true; setStatus("Tuning the instrument…"); setBusy(true);
   setTimeout(() => {
     missing.forEach(m => { bufs[m] = renderNote(m); });
     if (!clickHi) { clickHi = clickBuf(1900); clickLo = clickBuf(1250); }
-    tuning = false; setBusy(false); fn();
+    tuning = false; setBusy(false); const f = withAudio.q || fn; withAudio.q = null; f();
   }, 30);
 }
 document.querySelectorAll(".js-play").forEach(b => b.addEventListener("click", () => { if (playing) { stop(); return; } withAudio(start); }));
@@ -1948,6 +1948,8 @@ async function connectMidi(){
   try {
     midi = await navigator.requestMIDIAccess();
     midi.onstatechange = listInputs; listInputs();
+    /* Wait for me was chosen before the keyboard was ready: start waiting now */
+    if (S.wait !== "off" && P && !playing && waitK < 0 && !autoT) withAudio(() => enterWait(stepIdx >= 0 ? stepIdx : S.a));
     if (S.out === "laptop" && ensureCtx()) prerender();
   } catch (e) {
     midi = null;
@@ -2995,7 +2997,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261027c";
+const BUILD = "261027d";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
