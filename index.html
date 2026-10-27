@@ -378,9 +378,16 @@ body.rot .ptime svg{width:96px} body.rot .pbtn .q{display:inline}
   body:not(.rot) .pd-sep{display:none}
   body:not(.rot) .ptime{display:none}
 }
+/* the wish list is parked for now (its code stays; remove this line to bring it back) */
+#plWish{display:none!important}
+/* library page: the dock stays out of the way, and a clear way back */
+body:not(.practice) .dock{display:none}
+.back-prac{position:fixed;top:12px;right:16px;z-index:6;height:40px;padding:0 16px;font-weight:600;background:var(--fg);color:var(--bg);border-color:var(--fg)}
+body.practice .back-prac{display:none}
 </style>
 
 <main class="wrap">
+  <button class="chip back-prac" id="backPrac" type="button" hidden>Back to practice</button>
   <header>
     <h1 id="pieceTitle">Pianissimo</h1>
     <p class="sub" id="pieceSub">Open a piece from the library to start.</p>
@@ -2220,7 +2227,7 @@ function renderLib(){
       const m = document.createElement("span"); m.className = "m";
       m.textContent = [e.composer, e.collection, e.barCount ? e.barCount + " bars" : "", e.saved ? e.saved + " saved section" + (e.saved > 1 ? "s" : "") : "",
         e.folder ? "in your folder" : ""].filter(Boolean).join(" · ");
-      btn.append(t, m); btn.addEventListener("click", () => openPiece(e.id));
+      btn.append(t, m); btn.addEventListener("click", async () => { await openPiece(e.id); if (!document.body.classList.contains("practice") && P) $("land").click(); });
       li.appendChild(btn);
       if (!e.folder && canAdd) {
         const del = document.createElement("button"); del.className = "lib-del"; del.type = "button"; del.textContent = "Remove";
@@ -2988,7 +2995,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261027b";
+const BUILD = "261027c";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -3696,7 +3703,7 @@ function plRender(){
   const chip = $("plChip");
   if (!p) {
     chip.textContent = "Who's playing?";
-    $("plStats").textContent = "Add a name for whoever plays on this computer. Their practice time and wish list are kept under it, and their session records are filed by name.";
+    $("plStats").textContent = "Add a name for whoever plays on this computer. Their practice time is kept under it, and their session records are filed by name.";
     $("plWish").hidden = true;
   } else {
     const today = (p.days || {})[yymmdd()] || 0;
@@ -4418,6 +4425,7 @@ function applyView(){
   const man = manual && !!P;              // with nothing open yet, show the library first
   const rot = man && !auto && innerHeight > innerWidth;
   cl.toggle("practice", auto || man);
+  $("backPrac").hidden = !P;
   cl.toggle("manual", man && !auto);
   cl.toggle("rot", rot);
   cl.toggle("flip", rot && flipped);
@@ -4428,6 +4436,7 @@ function applyView(){
 }
 if (mqLand.addEventListener) mqLand.addEventListener("change", applyView); else mqLand.addListener(applyView);
 addEventListener("resize", applyView);
+$("backPrac").addEventListener("click", () => $("land").click());
 $("land").addEventListener("click", () => { manual = true; L.practice = true; saveLayout(); applyView(); });
 $("exit").addEventListener("click", () => { manual = false; L.practice = false; saveLayout(); applyView(); });
 $("flip").addEventListener("click", () => {
