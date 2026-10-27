@@ -2041,7 +2041,7 @@ document.addEventListener("pointerdown", () => { if (midi && S.out === "laptop" 
 
 /* ---------- Wait for me ---------- */
 let waitK = -1, need = new Set(), got = new Set(), early = new Set(), autoT = null;
-let extra = 0, passes = 0, passT0 = 0, fullPass = false;
+let extra = 0, passes = 0, passT0 = 0, fullPass = false, chainAt = 0;   // chainAt: when the last played-for-you step was due, so timer lateness doesn't pile up
 const waitHands = () => S.wait === "both" ? ["r", "l"] : S.wait === "off" ? [] : [S.wait];
 const mine = o => o.notes.filter(n => waitHands().includes(n.hand));
 const theirs = o => o.notes.filter(n => !waitHands().includes(n.hand));
@@ -2062,7 +2062,7 @@ function soundTheirs(o){
   const spq = 60 / S.bpm;
   theirs(o).forEach(n => { const v = S.hand[n.hand] * n.v; if (v > 0) voice(n.midi, ctx.currentTime + .005, Math.max(.05, n.d * spq * .95), v); });
 }
-function stopAuto(){ if (autoT) { clearTimeout(autoT); autoT = null; } early.clear(); }
+function stopAuto(){ if (autoT) { clearTimeout(autoT); autoT = null; } early.clear(); chainAt = 0; }
 function enterWait(k){
   stopAuto(); waitK = -1; passT0 = 0; extra = 0;
   if (!waitOn() || !P) return;
@@ -2093,7 +2093,7 @@ function satisfied(){
   const k = waitK;
   rec({ e: "got", k });
   if (!passT0) passT0 = performance.now();
-  waitK = -1;
+  waitK = -1; chainAt = 0;
   soundTheirs(ON[k]);
   carryOn(k);
 }
@@ -2114,6 +2114,8 @@ function carryOn(k){
     n = S.a;
   }
   if (mine(ON[n]).length) { setTarget(n); return; }
+  const now = performance.now(), due = (chainAt || now) + gapAfter(k) * 60 / S.bpm * 1000;
+  chainAt = due;
   autoT = setTimeout(() => {
     autoT = null;
     const o = ON[n];
@@ -2121,7 +2123,7 @@ function carryOn(k){
     soundTheirs(o);
     setStatus("Other hand · " + describe(o));
     carryOn(n);
-  }, gapAfter(k) * 60 / S.bpm * 1000);
+  }, Math.max(0, due - now));
 }
 function finishWait(msg){
   stopAuto(); waitK = -1; clearMarks();
@@ -2997,7 +2999,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261027d";
+const BUILD = "261027e";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
