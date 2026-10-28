@@ -114,6 +114,19 @@ input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--fg)}
 .lib-tagedit .chip{padding:4px 10px;font-size:.82rem}
 .lib-tagedit .chip.sugg{border-style:dashed}
 .lib-tagedit .te-pair{display:inline-flex;gap:2px}
+/* a touch screen is present (a phone, or a Chromebook beside its trackpad): fingertip-sized targets, 44px and up */
+@media (any-pointer:coarse){
+  .chip,.tool,.seg button,.lib-del,.lib-tag,.lib-active .chip,.lf-tags .chip,.lib-tagedit .chip{min-height:44px;padding-top:8px;padding-bottom:8px;display:inline-flex;align-items:center;justify-content:center}
+  .lib-del,.lib-tag{padding-left:14px;padding-right:14px}
+  .dock .play,.dock .step,.play,.step{min-height:48px}
+  select,.sec-pick,#libFilter,.lf-facets select,.lib-tagedit input[type=text],.bars-in{min-height:44px}
+  .lib-item{min-height:56px;justify-content:center}
+  .lib-tagedit .te-row{gap:8px}
+  .lib-tagedit .te-pair{gap:6px}
+  input[type=checkbox]{width:24px;height:24px}
+  .check{min-height:44px;gap:10px}
+  input[type=range]{height:32px}
+}
 .lib-tagedit input[type=text]{font:inherit;font-size:.92rem;padding:5px 9px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg);width:14rem;max-width:100%}
 
 .foot{color:var(--muted);font-size:.86rem;margin:0;max-width:68ch}
