@@ -2536,6 +2536,11 @@ function exXML(title, fam, seqs, fifths, bpm){
   const N = Math.max(seqs.r.length, seqs.l.length);
   const lens = N <= 12 ? [N] : Array(Math.floor(N / 8)).fill(8).concat(N % 8 ? [N % 8] : []);      // bars of eight eighths; the last bar is as short as it needs to be, so there are no padding rests
   const bars = lens.length;
+  // each hand keeps to its own staff, but the clef follows the notes (as in printed scale books): a hand that climbs well above middle C reads in treble clef, and goes back to bass on the way down
+  const CLEF = { G: '<sign>G</sign><line>2</line>', F: '<sign>F</sign><line>4</line>' };
+  const pickClef = (cur, grp) => { const lo = Math.min(...grp.map(n => n.midi)), hi = Math.max(...grp.map(n => n.midi)); return cur === "F" ? (lo >= 60 ? "G" : "F") : (hi <= 60 ? "F" : "G"); };
+  const cur = { r: "G", l: "F" };
+  for (const h of ["r", "l"]) if (seqs[h].length) cur[h] = pickClef(h === "r" ? "G" : "F", seqs[h].slice(0, 4));
   const acc = { 2: "double-sharp", 1: "sharp", 0: "natural", "-1": "flat", "-2": "flat-flat" };
   let x = `<?xml version="1.0" encoding="UTF-8"?>\n<score-partwise version="3.1">\n<work><work-title>${esc(title)}</work-title></work>\n`
     + `<identification><creator type="composer">Exercise</creator></identification>\n<part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>\n<part id="P1">\n`;
@@ -2543,7 +2548,7 @@ function exXML(title, fam, seqs, fifths, bpm){
     const len = lens[b], start = b * 8, timeXml = len === 8 ? `<time><beats>4</beats><beat-type>4</beat-type></time>` : `<time><beats>${len}</beats><beat-type>8</beat-type></time>`;
     x += `<measure number="${b + 1}">\n`;
     if (b === 0) x += `<attributes><divisions>2</divisions><key><fifths>${fifths}</fifths><mode>${fam.mode}</mode></key>${timeXml}<staves>2</staves>`
-      + `<clef number="1"><sign>G</sign><line>2</line></clef><clef number="2"><sign>F</sign><line>4</line></clef></attributes>\n`
+      + `<clef number="1">${CLEF[cur.r]}</clef><clef number="2">${CLEF[cur.l]}</clef></attributes>\n`
       + `<direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>${bpm}</per-minute></metronome></direction-type><sound tempo="${bpm}"/></direction>\n`;
     if (b > 0 && len !== lens[b - 1]) x += `<attributes>${timeXml}</attributes>\n`;
     [["r", 1], ["l", 2]].forEach(([h, staff]) => {
@@ -2552,6 +2557,7 @@ function exXML(title, fam, seqs, fifths, bpm){
       if (!seq.length) { x += `<note><rest measure="yes"/><duration>${len}</duration><voice>${staff}</voice><staff>${staff}</staff></note>\n`; return; }
       const chunk = seq.slice(start, start + len), shown = {};      // accidentals already in force in this bar, by letter and octave
       chunk.forEach((s, i) => {
+        if (i % 4 === 0) { const nc = pickClef(cur[h], chunk.slice(i, i + 4)); if (nc !== cur[h]) { cur[h] = nc; x += `<attributes><clef number="${staff}">${CLEF[nc]}</clef></attributes>\n`; } }
         const L = EX_LET.indexOf(s.step), key = L + ":" + s.oct, was = key in shown ? shown[key] : exSig(L, fifths);
         const gs = Math.min(4, chunk.length - 4 * Math.floor(i / 4)), pos = i % 4;
         const beam = gs < 2 ? "" : `<beam number="1">${pos === 0 ? "begin" : pos === gs - 1 ? "end" : "continue"}</beam>`;
