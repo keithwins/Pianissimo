@@ -26,4 +26,4 @@ The library list can now be searched and filtered without getting busier.
 - One pool, two doors: browse by skill on their own, or from a selected passage in a piece ("drill this pattern"), and from a drill back to the pieces that use it.
 - They share the tag vocabulary above, so matching a passage to its drills is just matching tags. Exercises only need tags for the kind of pattern and the skill it trains; key, hand and tempo are chosen when starting.
 - Menu and gentle nudge together: everything is always listed, with a quiet "ready for you" highlight on top.
-- Open question: whether pieces and exercises share one list (a "type" filter and a small badge) or sit side by side. Leaning toward one list, since a search for "arpeggio" then finds both.
+- Decided (Oct 28): pieces and exercises share **one list**, with a "type" filter (pieces, exercises, both) and a small badge on exercises. A search for "arpeggio" then finds both. A piece opens as itself; an exercise first asks for key, hand and tempo.
