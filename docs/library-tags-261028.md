@@ -20,10 +20,10 @@ The library list can now be searched and filtered without getting busier.
 - If the folder can't be written to, tags wait in this browser and go into the sidecar next time it can.
 - Library entries are re-read once after this change (entry version 5) to pick up the facts.
 
-## Exercises (not built yet; the plan)
+## Exercises (built, v1, Oct 28)
 
-- Exercises are generated patterns: a pattern, plus key, hand and tempo, shown through the same falling notes, fingering and keyboard. Nothing stored per key.
-- One pool, two doors: browse by skill on their own, or from a selected passage in a piece ("drill this pattern"), and from a drill back to the pieces that use it.
-- They share the tag vocabulary above, so matching a passage to its drills is just matching tags. Exercises only need tags for the kind of pattern and the skill it trains; key, hand and tempo are chosen when starting.
-- Menu and gentle nudge together: everything is always listed, with a quiet "ready for you" highlight on top.
-- Decided (Oct 28): pieces and exercises share **one list**, with a "type" filter (pieces, exercises, both) and a small badge on exercises. A search for "arpeggio" then finds both. A piece opens as itself; an exercise first asks for key, hand and tempo.
+- Exercises are generated: a material (major, natural and harmonic minor, chromatic, major/minor/dominant-seventh arpeggios) plus a pattern (plain, in threes, in fours, thirds, step and back, turns, skip, with the octave) plus key, hand, reach (1-3 octaves) and direction. Each is written as a small two-staff score and played through the same falling notes, staff, fingering and keyboard. Nothing is stored per key.
+- Two families: **pitch-path** patterns (follow the scale/arpeggio) and **fixed five-finger** patterns (five-finger major/minor, patterns of finger numbers, the left hand mirrored).
+- They sit in the **one shared list** with an Exercise badge and a Type filter. Tapping a row opens a quiet setup sheet (key, hands, pattern, reach, direction, Start). Once running, a small ‹ key › control in the title bar moves to the next or previous key in circle-of-fifths order, keeping the tempo.
+- Scale fingering follows the standard thumb-position tables (checked against textbook fingering in all 12 keys, both hands); arpeggios use 1-2-3 (and 1-2-3-4) right hand, 5-3-2-1 left hand; both can be edited with the usual fingering editor.
+- Not yet: "drill this pattern" from inside a piece, "pieces using this drill", the "ready for you" nudge, melodic minor, pentatonic, diminished sevenths, parallel thirds/sixths blocks, reading and ear exercises.

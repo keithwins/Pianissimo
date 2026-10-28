@@ -116,7 +116,7 @@ input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--fg)}
 .lib-tagedit .te-pair{display:inline-flex;gap:2px}
 /* a touch screen is present (a phone, or a Chromebook beside its trackpad): fingertip-sized targets, 44px and up */
 @media (any-pointer:coarse){
-  .chip,.tool,.seg button,.lib-del,.lib-tag,.lib-active .chip,.lf-tags .chip,.lib-tagedit .chip{min-height:44px;padding-top:8px;padding-bottom:8px;display:inline-flex;align-items:center;justify-content:center}
+  .chip,.tool,.seg button,.lib-del,.lib-tag,.lib-active .chip,.lf-tags .chip,.lib-tagedit .chip,.ex-chips .chip{min-height:44px;padding-top:8px;padding-bottom:8px;display:inline-flex;align-items:center;justify-content:center}
   .lib-del,.lib-tag{padding-left:14px;padding-right:14px}
   .dock .play,.dock .step,.play,.step{min-height:48px}
   select,.sec-pick,#libFilter,.lf-facets select,.lib-tagedit input[type=text],.bars-in{min-height:44px}
@@ -127,6 +127,17 @@ input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--fg)}
   .check{min-height:44px;gap:10px}
   input[type=range]{height:32px}
 }
+.badge{font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 7px;margin-left:8px;vertical-align:2px}
+.lib-list li.lib-exrow{display:block;background:var(--tint)}
+.lib-exsheet{display:flex;flex-direction:column;gap:10px;padding:10px 10px 14px}
+.ex-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.ex-row .te-lab{min-width:4.8rem;font-size:.82rem;color:var(--muted)}
+.ex-chips{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 0;min-width:0}
+.ex-chips .chip{padding:4px 11px;font-size:.84rem}
+.ex-hint{font-family:var(--font-num);font-size:.84rem;color:var(--muted);padding-left:calc(4.8rem + 10px)}
+.ex-go{margin-top:2px}
+.exkey{display:inline-flex;align-items:center;gap:6px}
+.exkey .exname{font:600 1rem var(--font-num);min-width:2.4em;text-align:center}
 .lib-tagedit input[type=text]{font:inherit;font-size:.92rem;padding:5px 9px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg);width:14rem;max-width:100%}
 
 .foot{color:var(--muted);font-size:.86rem;margin:0;max-width:68ch}
@@ -516,7 +527,7 @@ body.practice .back-prac{display:none}
     <button class="ptitle" id="ptLib" type="button" aria-label="Open the library"><span class="pt-name" id="ptName">Pianissimo</span><span class="pt-sub js-status" id="ptStatus">Ready</span></button>
     <div class="ptime" id="ptTime" hidden aria-live="off"><svg id="ptTimeSvg" viewBox="0 0 132 28" aria-hidden="true"></svg><span id="ptTimeTxt"></span></div>
     <span class="grow"></span>
-    <div class="pt-slot" id="ptSlot"></div>
+    <div class="pt-slot" id="ptSlot"><span class="exkey" id="exKey" hidden><button class="chip" id="exPrev" type="button" aria-label="Previous key">‹</button><span class="exname" id="exKeyName" aria-live="polite"></span><button class="chip" id="exNext" type="button" aria-label="Next key">›</button></span></div>
     <button class="pbtn icon" id="setBtn" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
   </div>
    <div class="bar-tools">
@@ -1826,7 +1837,7 @@ function setPiece(p){
   if (FE.on) feStart();
   recoverEdits(P);
   rec({ e: "piece", id: P.id, title: P.title, bars: P.src.bars.length }); recSettings();
-  renderSecRow();
+  renderSecRow(); exSync();
   if (L.harm) harmOn();
 }
 
@@ -2393,17 +2404,237 @@ function libEntries(){
   const list = saved.concat(folderMetas).sort((a, b) => String(a.title).localeCompare(String(b.title)));
   return list;
 }
+/* =====================================================================
+   Exercises
+   An exercise is built from four separate pieces, then shown through the same player as any piece:
+     material   the notes themselves (a scale, an arpeggio, or five keys under the hand)
+     pattern    the walking rule laid over the material (in threes, step and back, ...)
+     turnaround up only, or up and back down (the walk reversed, the top note played once)
+     fingering  worked out by the same planner that suggests fingering for pieces; for the
+                five-finger family the pattern IS the finger numbers, so they are fixed
+   Each is written out as a small MusicXML score, so the staff, falling notes, sections,
+   Wait for me and the games all work on it without special cases. Nothing is stored per key.
+   ===================================================================== */
+const EX_LET = ["C", "D", "E", "F", "G", "A", "B"], EX_NATPC = [0, 2, 4, 5, 7, 9, 11];
+const EX_NAMES = { major: ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"], minor: ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "G♯", "A", "B♭", "B"] };
+const EX_FIFTHS = { major: [0, -5, 2, -3, 4, -1, 6, 1, -4, 3, -2, 5], minor: [-3, 4, -1, -6, 1, -4, 3, -2, 5, 0, -5, 2] };
+const EX_ORDER = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5];      // the circle of fifths, as pitch classes: "next key" follows it
+/* the alteration a key signature gives to the letter at index L */
+function exSig(L, fifths){
+  const sh = [3, 0, 4, 1, 5, 2, 6], fl = [6, 2, 5, 1, 4, 0, 3];
+  if (fifths > 0) return sh.slice(0, fifths).includes(L) ? 1 : 0;
+  if (fifths < 0) return fl.slice(0, -fifths).includes(L) ? -1 : 0;
+  return 0;
+}
+/* patterns over a path of notes: which steps of the path to play in each group (n = a full turn of the material, an octave up) */
+const EX_PP = [
+  { id: "plain",   name: "Plain",             off: [0],          hint: "1 2 3 4 5 6 …" },
+  { id: "threes",  name: "In threes",         off: [0, 1, 2],    hint: "1 2 3 · 2 3 4 · 3 4 5 …" },
+  { id: "fours",   name: "In fours",          off: [0, 1, 2, 3], hint: "1 2 3 4 · 2 3 4 5 · 3 4 5 6 …" },
+  { id: "thirds",  name: "In thirds",         off: [0, 2],       hint: "1 3 · 2 4 · 3 5 …" },
+  { id: "back",    name: "Step and back",     off: [0, 1, 0],    hint: "1 2 1 · 2 3 2 · 3 4 3 …" },
+  { id: "turn",    name: "Turns",             off: [0, 1, 2, 1], hint: "1 2 3 2 · 2 3 4 3 · 3 4 5 4 …" },
+  { id: "skip",    name: "Skip and fill",     off: [0, 2, 1],    hint: "1 3 2 · 2 4 3 · 3 5 4 …" },
+  { id: "octaves", name: "With the octave",   off: [0, "n"],     hint: "1 and the one an octave up · 2 and its octave …" }
+];
+/* patterns over five keys under the hand: the numbers are fingers (1 = thumb … 5 = little finger) */
+const EX_FP = [
+  { id: "updown",  name: "Up and down",             f: [1, 2, 3, 4, 5, 4, 3, 2, 1] },
+  { id: "home",    name: "Home note, out and back", f: [1, 2, 1, 2, 3, 2, 1, 1, 2, 4, 2, 1, 1, 2, 5, 2, 1] },
+  { id: "pairs",   name: "Neighbour pairs",         f: [1, 2, 1, 2, 2, 3, 2, 3, 3, 4, 3, 4, 4, 5, 4, 5] },
+  { id: "threes",  name: "In threes",               f: [1, 2, 3, 2, 3, 4, 3, 4, 5, 5, 4, 3, 4, 3, 2, 3, 2, 1] },
+  { id: "skip",    name: "Skip and fill",           f: [1, 3, 2, 4, 3, 5, 4, 5, 3, 4, 2, 3, 1, 2] }
+];
+const EX_FAM = [
+  { id: "major",     fing: "scale", name: "Major scale",              lower: "major scale",              mode: "major", kind: "path", iv: [0, 2, 4, 5, 7, 9, 11], lo: [0, 1, 2, 3, 4, 5, 6], fixed: ["scales", "scale runs"], blurb: "Any key, any pattern" },
+  { id: "natminor",  fing: "scale", name: "Natural minor scale",      lower: "natural minor scale",      mode: "minor", kind: "path", iv: [0, 2, 3, 5, 7, 8, 10], lo: [0, 1, 2, 3, 4, 5, 6], fixed: ["scales", "scale runs"], blurb: "Any key, any pattern" },
+  { id: "harminor",  fing: "scale", name: "Harmonic minor scale",     lower: "harmonic minor scale",     mode: "minor", kind: "path", iv: [0, 2, 3, 5, 7, 8, 11], lo: [0, 1, 2, 3, 4, 5, 6], fixed: ["scales", "scale runs"], blurb: "Any key, any pattern" },
+  { id: "chromatic", fing: "chrom", name: "Chromatic scale",          lower: "chromatic scale",          mode: "major", kind: "path", iv: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], lo: null, fixed: ["scales", "scale runs"], blurb: "Every key on the way" },
+  { id: "arpmaj", fing: "arp",    name: "Major arpeggio",           lower: "major arpeggio",           mode: "major", kind: "path", iv: [0, 4, 7],     lo: [0, 2, 4],    fixed: ["arpeggios"], blurb: "Broken chord, any key" },
+  { id: "arpmin", fing: "arp",    name: "Minor arpeggio",           lower: "minor arpeggio",           mode: "minor", kind: "path", iv: [0, 3, 7],     lo: [0, 2, 4],    fixed: ["arpeggios"], blurb: "Broken chord, any key" },
+  { id: "arpdom", fing: "arp",    name: "Dominant seventh arpeggio", lower: "dominant seventh arpeggio", mode: "major", kind: "path", iv: [0, 4, 7, 10], lo: [0, 2, 4, 6], fixed: ["arpeggios"], blurb: "Broken chord, any key" },
+  { id: "fingmaj",   name: "Five-finger position, major", lower: "major five-finger position", mode: "major", kind: "fingers", iv: [0, 2, 4, 5, 7], lo: [0, 1, 2, 3, 4], fixed: ["finger independence", "five-finger"], blurb: "Hand stays put; the pattern is the fingers" },
+  { id: "fingmin",   name: "Five-finger position, minor", lower: "minor five-finger position", mode: "minor", kind: "fingers", iv: [0, 2, 3, 5, 7], lo: [0, 1, 2, 3, 4], fixed: ["finger independence", "five-finger"], blurb: "Hand stays put; the pattern is the fingers" }
+];
+const EX_ENTRIES = EX_FAM.map(f => ({ id: "x:" + f.id, fid: f.id, exercise: true, title: f.name, composer: "", sub: f.blurb, fixed: f.fixed }));
+const exFam = id => EX_FAM.find(f => f.id === id) || EX_FAM[0];
+const exPats = fam => fam.kind === "path" ? EX_PP : EX_FP;
+
+const EX_STORE = fid => "pianissimo-ex-" + fid;
+function exParams(fam){
+  let s = {}; try { s = JSON.parse(localStorage.getItem(EX_STORE(fam.id)) || "{}") || {}; } catch (e) {}
+  const pats = exPats(fam);
+  return { tonic: Number.isInteger(s.tonic) && s.tonic >= 0 && s.tonic < 12 ? s.tonic : 0, hand: ["r", "l", "b"].includes(s.hand) ? s.hand : "r",
+    pat: pats.some(p => p.id === s.pat) ? s.pat : pats[0].id, oct: [1, 2, 3].includes(s.oct) ? s.oct : 2, dir: s.dir === "u" ? "u" : "ud" };
+}
+function exSave(fam, q){ try { localStorage.setItem(EX_STORE(fam.id), JSON.stringify(q)); } catch (e) {} }
+
+/* Standard scale fingering. The thumb falls on the same degrees in every octave (degrees counted from 0 = the tonic),
+   so a key is described by where its thumbs go; every other finger follows. Right hand going up: 1 on the thumb, then 2, 3, 4 until the next thumb.
+   Left hand going up: the fingers count down to each thumb (4 3 2 1), then the next finger crosses over. Coming down uses the same finger on each note. */
+const EX_THUMBS = {
+  major: { r: [[0, 3], [2, 6], [0, 3], [1, 5], [0, 3], [0, 4], [3, 6], [0, 3], [2, 5], [0, 3], [1, 4], [0, 3]],
+           l: [[0, 4], [2, 6], [0, 4], [2, 6], [0, 4], [0, 4], [3, 6], [0, 4], [2, 6], [0, 4], [2, 6], [0, 3]] },
+  minor: { r: [[0, 3], [2, 5], [0, 3], [1, 5], [0, 3], [0, 4], [2, 5], [0, 3], [2, 5], [0, 3], [1, 4], [0, 3]],
+           l: [[0, 4], [2, 6], [0, 4], [2, 6], [0, 4], [0, 4], [3, 6], [0, 4], [2, 6], [0, 4], [2, 6], [0, 3]] }
+};
+function exScaleFinger(fam, pc, h, i, top){
+  if (fam.fing === "chrom") return isBlackPc((((60 + pc + i) % 12) + 12) % 12) ? 3 : 1;      // the thumb on every white key, the third finger on every black one
+  if (fam.fing === "arp") {                                                                     // chords: thumb, second, third (little finger on top); left hand 5, then 3 2 1
+    const n = fam.iv.length;
+    if (h === "r") return i === top ? 5 : [[1, 2, 3], [1, 2, 3, 4]][n - 3][i % n];
+    return i === 0 ? 5 : [[3, 2, 1], [4, 3, 2, 1]][n - 3][(i - 1) % n];
+  }
+  const th = EX_THUMBS[fam.mode][h][pc], k = i % 7;
+  if (h === "r") {
+    let s = 0; while (!th.includes(((k - s) % 7 + 7) % 7)) s++;
+    const f = 1 + s; return i === top && f === 1 ? (pc === 5 ? 4 : 5) : f;                                      // the top note of the run is played with the little finger
+  }
+  let s = i === 0 ? 1 : 0; while (!th.includes((k + s) % 7)) s++;                              // the first note counts to the next thumb, not to itself
+  return 1 + s;
+}
+
+/* the notes, as two lists (right hand, left hand) of spelled pitches */
+function exNotes(fam, q){
+  const mode = fam.mode, pc = q.tonic, nm = EX_NAMES[mode][pc], fifths = EX_FIFTHS[mode][pc], L0 = EX_LET.indexOf(nm[0]);
+  const tonicRH = 60 + pc;
+  const spellAt = (midi, lo) => {
+    let a = 0, step = null;
+    if (lo != null) {
+      const L = (L0 + lo) % 7, d = (((midi % 12) - EX_NATPC[L]) % 12 + 12) % 12;
+      a = d > 6 ? d - 12 : d;
+      if (Math.abs(a) <= 1) step = EX_LET[L];
+    }
+    if (!step) { a = alterIn(midi, fifths); step = NAT[(((midi - a) % 12) + 12) % 12] || "C"; }
+    return { midi, step, alter: a, oct: Math.floor((midi - a) / 12) - 1 };
+  };
+  const seqs = { r: [], l: [] }, hands = q.hand === "b" ? ["r", "l"] : [q.hand];
+  if (fam.kind === "path") {
+    const n = fam.iv.length, top = n * q.oct, pat = EX_PP.find(p => p.id === q.pat) || EX_PP[0];
+    const offs = pat.off.map(o => o === "n" ? n : o), m = Math.max(...offs);
+    let idx = [];
+    for (let s = 0; s + m <= top; s++) for (const o of offs) idx.push(s + o);
+    if (q.dir === "ud") { const back = idx.slice().reverse(); idx = idx.concat(back.slice(back[0] === idx[idx.length - 1] ? 1 : 0)); }
+    const base = h => h === "r" ? tonicRH : (q.hand === "b" ? tonicRH - 12 : 48 + pc - (pc >= 7 ? 12 : 0));
+    for (const h of hands) seqs[h] = idx.map(i => {
+      const k = i % n, o = Math.floor(i / n), s = spellAt(base(h) + 12 * o + fam.iv[k], fam.lo ? fam.lo[k] : null);
+      if (fam.fing) s.finger = exScaleFinger(fam, fam.fing === "chrom" ? (h === "r" ? pc : pc) : pc, h, i, top);
+      return s;
+    });
+  } else {
+    const pat = EX_FP.find(p => p.id === q.pat) || EX_FP[0];
+    for (const h of hands) seqs[h] = pat.f.map(f => {
+      const k = h === "r" ? f - 1 : 5 - f, base = h === "r" ? tonicRH : tonicRH - 12;    // the left hand is the right in a mirror: thumb on the top key
+      const s = spellAt(base + fam.iv[k], fam.lo[k]); s.finger = f; return s;
+    });
+  }
+  return { seqs, nm, fifths };
+}
+
+/* a small MusicXML score: eighth notes in 4/4, right hand on the top staff, left hand on the bottom */
+function exXML(title, fam, seqs, fifths, bpm){
+  const N = Math.max(seqs.r.length, seqs.l.length), bars = Math.max(1, Math.ceil(N / 8));
+  const acc = { 2: "double-sharp", 1: "sharp", 0: "natural", "-1": "flat", "-2": "flat-flat" };
+  let x = `<?xml version="1.0" encoding="UTF-8"?>\n<score-partwise version="3.1">\n<work><work-title>${esc(title)}</work-title></work>\n`
+    + `<identification><creator type="composer">Exercise</creator></identification>\n<part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>\n<part id="P1">\n`;
+  for (let b = 0; b < bars; b++) {
+    x += `<measure number="${b + 1}">\n`;
+    if (b === 0) x += `<attributes><divisions>2</divisions><key><fifths>${fifths}</fifths><mode>${fam.mode}</mode></key><time><beats>4</beats><beat-type>4</beat-type></time><staves>2</staves>`
+      + `<clef number="1"><sign>G</sign><line>2</line></clef><clef number="2"><sign>F</sign><line>4</line></clef></attributes>\n`
+      + `<direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>${bpm}</per-minute></metronome></direction-type><sound tempo="${bpm}"/></direction>\n`;
+    [["r", 1], ["l", 2]].forEach(([h, staff]) => {
+      if (staff === 2) x += `<backup><duration>8</duration></backup>\n`;
+      const seq = seqs[h];
+      if (!seq.length) { x += `<note><rest measure="yes"/><duration>8</duration><voice>${staff}</voice><staff>${staff}</staff></note>\n`; return; }
+      const chunk = seq.slice(b * 8, b * 8 + 8), shown = {};      // accidentals already in force in this bar, by letter and octave
+      chunk.forEach((s, i) => {
+        const L = EX_LET.indexOf(s.step), key = L + ":" + s.oct, was = key in shown ? shown[key] : exSig(L, fifths);
+        const gs = Math.min(4, chunk.length - 4 * Math.floor(i / 4)), pos = i % 4;
+        const beam = gs < 2 ? "" : `<beam number="1">${pos === 0 ? "begin" : pos === gs - 1 ? "end" : "continue"}</beam>`;
+        x += `<note><pitch><step>${s.step}</step>${s.alter ? `<alter>${s.alter}</alter>` : ""}<octave>${s.oct}</octave></pitch><duration>1</duration><voice>${staff}</voice><type>eighth</type>`
+          + (s.alter !== was ? `<accidental>${acc[s.alter]}</accidental>` : "") + `<staff>${staff}</staff>${beam}`
+          + (s.finger ? `<notations><technical><fingering>${s.finger}</fingering></technical></notations>` : "") + `</note>\n`;
+        shown[key] = s.alter;
+      });
+      for (let i = chunk.length; i < 8; i++) x += `<note><rest/><duration>1</duration><voice>${staff}</voice><type>eighth</type><staff>${staff}</staff></note>\n`;
+    });
+    x += `</measure>\n`;
+  }
+  return x + `</part>\n</score-partwise>\n`;
+}
+
+const EX_HANDS = { r: "right hand", l: "left hand", b: "both hands" };
+function exMake(fid, q){
+  const fam = exFam(fid), pat = exPats(fam).find(p => p.id === q.pat) || exPats(fam)[0];
+  const { seqs, nm, fifths } = exNotes(fam, q);
+  const title = `${nm} ${fam.lower}` + (pat.id === "plain" || pat.id === "updown" && fam.kind === "fingers" ? "" : " · " + pat.name.toLowerCase());
+  const bpm = 80, xml = exXML(title, fam, seqs, fifths, bpm);
+  const p = parseMusicXML(xml, title + ".musicxml");
+  p.xml = xml; p.id = ["x", fam.id, q.tonic, q.hand, q.pat, q.oct, q.dir].join("|");
+  p.defaultBpm = bpm; p.ex = { fid: fam.id, q: { ...q } };
+  p.sub = ["Exercise", EX_HANDS[q.hand] + (q.hand === "b" ? (fam.kind === "fingers" ? ", mirrored" : ", an octave apart") : ""),
+    fam.kind === "path" ? `${q.oct} octave${q.oct > 1 ? "s" : ""}, ${q.dir === "ud" ? "up and down" : "up"}` : "fingers fixed"].join(" · ");
+  p.facts = { meter: "4/4", key: "", tempo: bpm, tempoGiven: true, shape: {} };
+  if (fam.kind === "path" && !fam.fing) fillFingering(p);          // fingering by the same planner as for pieces, written into the score as a suggestion
+  return p;
+}
+function exStart(fid, q){
+  exSave(exFam(fid), q);
+  let p; try { p = exMake(fid, q); } catch (e) { setLibNote("That exercise couldn't be built: " + (e.message || e), true); return; }
+  setPiece(p);
+  if (!document.body.classList.contains("practice") && P) $("land").click();
+}
+/* the next or previous key, round the circle of fifths, keeping tempo and everything else */
+function exStep(d){
+  if (!P || !P.ex) return;
+  const fam = exFam(P.ex.fid), i = EX_ORDER.indexOf(P.ex.q.tonic), q = { ...P.ex.q, tonic: EX_ORDER[(i + d + 12) % 12] }, bpm = S.bpm;
+  exSave(fam, q);
+  let p; try { p = exMake(fam.id, q); } catch (e) { setStatus("Couldn't build that key"); return; }
+  setPiece(p); S.bpm = bpm; save(); syncUI();
+}
+function exSync(){
+  const on = !!(P && P.ex); $("exKey").hidden = !on;
+  if (on) $("exKeyName").textContent = EX_NAMES[exFam(P.ex.fid).mode][P.ex.q.tonic];
+}
+$("exPrev").addEventListener("click", () => exStep(-1));
+$("exNext").addEventListener("click", () => exStep(1));
+let exOpenId = null;
+function exSheet(e){
+  const fam = exFam(e.fid), q = exParams(fam), box = mkEl("div", "lib-exsheet"), pats = exPats(fam);
+  const set = (k, v) => { q[k] = v; exSave(fam, q); renderLib(); };
+  const row = (label, items, cur, key) => {
+    const r = mkEl("div", "ex-row"), g = mkEl("div", "ex-chips"); r.append(mkEl("span", "te-lab", label)); g.setAttribute("role", "group"); g.setAttribute("aria-label", label);
+    items.forEach(([v, txt]) => { const b = mkEl("button", "chip", txt); b.type = "button"; b.setAttribute("aria-pressed", String(cur === v)); b.addEventListener("click", () => set(key, v)); g.append(b); });
+    r.append(g); return r;
+  };
+  box.append(row("Key", EX_NAMES[fam.mode].map((n, i) => [i, n]), q.tonic, "tonic"));
+  box.append(row("Hands", [["r", "Right"], ["l", "Left"], ["b", "Both"]], q.hand, "hand"));
+  box.append(row("Pattern", pats.map(p => [p.id, p.name]), q.pat, "pat"));
+  const pat = pats.find(p => p.id === q.pat) || pats[0];
+  box.append(mkEl("div", "ex-hint", fam.kind === "path" ? pat.hint : "fingers: " + pat.f.join(" ")));
+  if (fam.kind === "path") {
+    box.append(row("Reach", [[1, "1 octave"], [2, "2 octaves"], [3, "3 octaves"]], q.oct, "oct"));
+    box.append(row("Direction", [["u", "Up"], ["ud", "Up and down"]], q.dir, "dir"));
+  }
+  const go = mkEl("div", "ex-row ex-go"), start = mkEl("button", "tool", "Start");
+  start.type = "button"; start.addEventListener("click", () => exStart(fam.id, q));
+  go.append(start, mkEl("span", "g-hint", `${EX_NAMES[fam.mode][q.tonic]} ${fam.lower} · ${pat.name.toLowerCase()} · ${EX_HANDS[q.hand]}`));
+  box.append(go);
+  return box;
+}
+
 /* ---------- search, filters and tags ----------
    One quiet row on top: a search box and a Filter button. The filters (composer, era, key,
    meter, tempo, tags) open only when asked, and show as small removable chips once set.
    Tags are your own words, kept in the piece's sidecar (tags, and tagsRejected for suggestions
    you turned down). Pia's suggestions come from the notes themselves and are never filed until
    you keep one. */
-const LF = { q: "", open: false, tags: new Set(), composer: "", era: "", key: "", meter: "", tempo: "", collection: "" };
+const LF = { q: "", open: false, tags: new Set(), type: "", composer: "", era: "", key: "", meter: "", tempo: "", collection: "" };
 const TEMPO_BUCKETS = ["Slow (under 76)", "Moderate (76–119)", "Fast (120 and up)"];
 const tempoBucket = e => { const f = e.facts; if (!f || !f.tempoGiven || !f.tempo) return ""; return f.tempo < 76 ? TEMPO_BUCKETS[0] : f.tempo < 120 ? TEMPO_BUCKETS[1] : TEMPO_BUCKETS[2]; };
 const meterOf = e => { if (e.facts && e.facts.meter) return e.facts.meter; const f = String(e.bars || "").split(";")[0].split(","); return f.length > 3 && +f[2] && +f[3] ? f[2] + "/" + f[3] : ""; };
 const FACETS = [
+  ["type", "Type", e => e.exercise ? "Exercise" : "Piece"],
   ["composer", "Composer", e => String(e.composer || "").trim()],
   ["era", "Era", e => eraOf(e.composer)],
   ["key", "Key", e => (e.facts && e.facts.key) || ""],
@@ -2427,24 +2658,24 @@ function tagInfo(e){
   const loc = readLocalTags(e.id);
   const mine = (loc ? loc.tags : e.tags || []).filter(Boolean), rej = loc ? loc.rej || [] : e.rej || [];
   const ranked = rankedShapes(e), fresh = t => !mine.some(x => sameTag(x, t)) && !rej.some(x => sameTag(x, t));
-  return { mine, rej, sugg: ranked.slice(0, 3).filter(fresh), more: ranked.slice(3).filter(fresh) };
+  return { mine, rej, fixed: e.fixed || [], sugg: ranked.slice(0, 3).filter(fresh), more: ranked.slice(3).filter(fresh) };
 }
 const TI = new Map(), tinfo = e => { let x = TI.get(e.id); if (!x) TI.set(e.id, x = tagInfo(e)); return x; };
 let VOCAB = [];
 function buildVocab(all){
   const seen = new Map();
   for (const t of Object.keys(SHAPE_MIN)) seen.set(t.toLowerCase(), t);
-  for (const e of all) for (const t of tinfo(e).mine) if (!seen.has(t.toLowerCase())) seen.set(t.toLowerCase(), t);
+  for (const e of all) for (const t of tinfo(e).mine.concat(tinfo(e).fixed)) if (!seen.has(t.toLowerCase())) seen.set(t.toLowerCase(), t);
   VOCAB = [...seen.values()].sort((a, b) => a.localeCompare(b));
   const dl = $("libTagList"); dl.innerHTML = "";
   VOCAB.forEach(t => { const o = document.createElement("option"); o.value = t; dl.appendChild(o); });
 }
 
 function matchEntry(e, skip){
-  if (skip !== "q" && LF.q) { const i = tinfo(e), hay = [e.title, e.composer, e.collection, e.facts && e.facts.key, eraOf(e.composer), ...i.mine, ...i.sugg].join(" ").toLowerCase();
+  if (skip !== "q" && LF.q) { const i = tinfo(e), hay = [e.title, e.composer, e.collection, e.facts && e.facts.key, eraOf(e.composer), e.exercise ? "exercise " + e.sub : "", ...i.mine, ...i.sugg, ...i.fixed].join(" ").toLowerCase();
     for (const w of LF.q.split(/\s+/)) if (w && !hay.includes(w)) return false; }
   for (const [k, , get] of FACETS) if (k !== skip && LF[k] && get(e) !== LF[k]) return false;
-  if (skip !== "tags" && LF.tags.size) { const i = tinfo(e), have = new Set([...i.mine, ...i.sugg].map(t => t.toLowerCase())); for (const t of LF.tags) if (!have.has(t)) return false; }
+  if (skip !== "tags" && LF.tags.size) { const i = tinfo(e), have = new Set([...i.mine, ...i.sugg, ...i.fixed].map(t => t.toLowerCase())); for (const t of LF.tags) if (!have.has(t)) return false; }
   return true;
 }
 function clearFilters(){ FACETS.forEach(([k]) => { LF[k] = ""; }); LF.tags.clear(); $("libFilter").value = ""; LF.q = ""; renderLib(); }
@@ -2479,7 +2710,7 @@ function buildFilters(all, shown){
   }
   /* tags in use, with how many pieces carry each (given the other filters) */
   const tags = new Map();
-  for (const e of all) if (matchEntry(e, "tags")) { const i = tinfo(e); for (const t of [...i.mine, ...i.sugg]) { const k = t.toLowerCase(), x = tags.get(k) || { label: t, n: 0 }; x.n++; tags.set(k, x); } }
+  for (const e of all) if (matchEntry(e, "tags")) { const i = tinfo(e); for (const t of [...i.mine, ...i.sugg, ...i.fixed]) { const k = t.toLowerCase(), x = tags.get(k) || { label: t, n: 0 }; x.n++; tags.set(k, x); } }
   for (const k of LF.tags) if (!tags.has(k)) tags.set(k, { label: k, n: 0 });
   const tc = $("libTagChips"); tc.innerHTML = "";
   [...tags.entries()].sort((a, b) => b[1].n - a[1].n || a[1].label.localeCompare(b[1].label)).forEach(([k, x]) => {
@@ -2577,7 +2808,7 @@ function tagEditor(e){
 function renderLib(){
   TI.clear();
   const ul = $("libList"), top = ul.scrollTop; ul.innerHTML = "";
-  const all = libEntries();
+  const all = libEntries().concat(EX_ENTRIES);        // pieces first, then the exercises: one list
   buildVocab(all);
   const filtering = all.length >= 8;                  // with only a few pieces, the list is the whole interface
   $("libFind").hidden = !filtering;
@@ -2590,6 +2821,16 @@ function renderLib(){
   }
   shown.forEach(e => {
     const li = document.createElement("li");
+    if (e.exercise) {
+      const btn = mkEl("button", "lib-item"); btn.type = "button"; btn.setAttribute("aria-expanded", String(exOpenId === e.id));
+      btn.setAttribute("aria-current", String(!!P && !!P.ex && P.ex.fid === e.fid));
+      const t = mkEl("span", "t", e.title); t.append(mkEl("span", "badge", "Exercise"));
+      btn.append(t, mkEl("span", "m", e.sub));
+      btn.addEventListener("click", () => { exOpenId = exOpenId === e.id ? null : e.id; renderLib(); });
+      li.appendChild(btn); ul.appendChild(li);
+      if (exOpenId === e.id) { const row = mkEl("li", "lib-exrow"); row.appendChild(exSheet(e)); ul.appendChild(row); setTimeout(() => { try { row.scrollIntoView({ block: "nearest" }); } catch (x) {} }, 0); }
+      return;
+    }
     if (confirmId === e.id) {
       const box = document.createElement("div"); box.className = "lib-confirm";
       const msg = document.createElement("span"); msg.textContent = `Remove “${e.title}” from the library?`;
