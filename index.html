@@ -1114,7 +1114,7 @@ const fBlack = m => [1, 3, 6, 8, 10].includes(((m % 12) + 12) % 12);
 /* lower finger first, and the span from its key to the other's (pitches already mirrored for the left hand) */
 function fPair(f1, p1, f2, p2){ return f1 < f2 ? { a: f1, d: p2 - p1 } : { a: f2, d: p1 - p2, b: f1 }; }
 function spanCost(f1, p1, f2, p2, inChord){
-  if (f1 === f2) return p1 === p2 ? 0 : 7 + Math.min(6, Math.abs(p2 - p1)) * .5;
+  if (f1 === f2) return p1 === p2 ? 0 : 14 + Math.min(12, Math.abs(p2 - p1)) * .5;   // the same finger on a new key means the hand has jumped: costly
   const lo = Math.min(f1, f2), hi = Math.max(f1, f2), d = f1 < f2 ? p2 - p1 : p1 - p2;
   const [mp, mc, mr, xr, xc, xp] = FSPAN["" + lo + hi];
   let c = 0;
@@ -1180,7 +1180,7 @@ function planFingering(piece){
           if ((f2 === 1 && fBlack(b.midi) && !fBlack(a.midi)) || (f1 === 1 && fBlack(a.midi) && !fBlack(b.midi))) x += 2;
           if ((f2 === 5 && fBlack(b.midi) && !fBlack(a.midi)) || (f1 === 5 && fBlack(a.midi) && !fBlack(b.midi))) x += 1;
         }
-        if (a.t + a.d > B.t + 1e-6 && f1 === f2 && a.midi !== b.midi) x += 12;   // that finger is still holding a key
+        if (a.t + a.d > B.t + 1e-6 && f1 === f2 && a.midi !== b.midi && Math.abs(a.midi - b.midi) < 10) x += 12;   // a bass note far below is let go (pedal), not held by its finger   // that finger is still holding a key
         c += x;
       }));
       return c / A.ns.length * B.scale;
@@ -3636,7 +3636,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261027f";
+const BUILD = "261028b";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
