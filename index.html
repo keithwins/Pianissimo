@@ -1161,13 +1161,24 @@ const FSPAN = {   // right hand, lower finger first: [MinPrac, MinComf, MinRel, 
   "23": [1, 1, 1, 2, 3, 5], "24": [1, 1, 3, 4, 5, 7], "25": [2, 2, 5, 6, 8, 10],
   "34": [1, 1, 1, 2, 2, 4], "35": [1, 1, 3, 4, 5, 7], "45": [1, 1, 1, 2, 3, 5]
 };
+/* hand size: the table above is for an average hand whose thumb-to-little-finger comfortable span is 13 semitones (a minor ninth).
+   REACH is the person's own comfortable span; the upper limits of every pair scale with it, the lower ones stay. */
+let REACH = 13;
+try { const r = +localStorage.getItem("pianissimo-reach"); if (r >= 9 && r <= 19) REACH = r; } catch (e) {}
+const fspanCache = {};
+function fspan(lo, hi){
+  const key = "" + lo + hi + "@" + REACH;
+  if (fspanCache[key]) return fspanCache[key];
+  const t = FSPAN["" + lo + hi], k = REACH / 13;
+  return fspanCache[key] = t.map((v, i) => i >= 3 ? v * k : v);
+}
 const fBlack = m => [1, 3, 6, 8, 10].includes(((m % 12) + 12) % 12);
 /* lower finger first, and the span from its key to the other's (pitches already mirrored for the left hand) */
 function fPair(f1, p1, f2, p2){ return f1 < f2 ? { a: f1, d: p2 - p1 } : { a: f2, d: p1 - p2, b: f1 }; }
 function spanCost(f1, p1, f2, p2, inChord){
   if (f1 === f2) return p1 === p2 ? 0 : 14 + Math.min(12, Math.abs(p2 - p1)) * .5;   // the same finger on a new key means the hand has jumped: costly
   const lo = Math.min(f1, f2), hi = Math.max(f1, f2), d = f1 < f2 ? p2 - p1 : p1 - p2;
-  const [mp, mc, mr, xr, xc, xp] = FSPAN["" + lo + hi];
+  const [mp, mc, mr, xr, xc, xp] = fspan(lo, hi);
   let c = 0;
   if (d > xp) c += 10 + 3 * (d - xp); else if (d < mp) c += 10 + 3 * (mp - d);
   if (d > xc) c += 2 * (d - xc); else if (d < mc) c += 2 * (mc - d);
@@ -1178,7 +1189,7 @@ function spanCost(f1, p1, f2, p2, inChord){
 function outsideComf(f1, p1, f2, p2){
   if (f1 === f2) return 0;
   const lo = Math.min(f1, f2), hi = Math.max(f1, f2), d = f1 < f2 ? p2 - p1 : p1 - p2;
-  const [, mc, , , xc] = FSPAN["" + lo + hi];
+  const [, mc, , , xc] = fspan(lo, hi);
   return d > xc ? d - xc : d < mc ? mc - d : 0;
 }
 function planFingering(piece){
@@ -1198,8 +1209,8 @@ function planFingering(piece){
       const fixed = cands.filter(c => ns.every((n, i) => !n.finger || n.finger === c[i]));
       if (fixed.length) cands = fixed;
       /* a wide two-note span (an octave or a ninth) is the thumb and the little finger; finger 4 does not reach it */
-      if (ns.length === 2 && Math.abs(ns[1].midi - ns[0].midi) >= 9) { const wide = cands.filter(c => c[0] === 1 && c[1] === 5); if (wide.length) cands = wide; }
-      s.ns = ns; s.single = ns.length === 1; s.wide = ns.length === 2 && Math.abs(ns[1].midi - ns[0].midi) >= 9;
+      if (ns.length === 2 && Math.abs(ns[1].midi - ns[0].midi) >= Math.round(9 * REACH / 13)) { const wide = cands.filter(c => c[0] === 1 && c[1] === 5); if (wide.length) cands = wide; }
+      s.ns = ns; s.single = ns.length === 1; s.wide = ns.length === 2 && Math.abs(ns[1].midi - ns[0].midi) >= Math.round(9 * REACH / 13);
       s.cands = cands.map(c => {
         let cost = 0;
         ns.forEach((n, i) => {
@@ -2225,7 +2236,7 @@ function onMidi(e){
   else if (cmd === 0xb0 && d[1] === 64) pedal(d[2] >= 64);
 }
 function showPress(m, on){ if (keyEl[m]) keyEl[m].classList.toggle("press", on); if (GK.el[m]) GK.el[m].classList.toggle("press", on); }
-function keyDown(m, vel, ts){ held.add(m); showPress(m, true); liveOn(m, vel || 80); keyAfter(); if (G.on) gKey(m, vel || 80, ts || performance.now()); else if (FE.on) feKey(m); else waitHear(m); }
+function keyDown(m, vel, ts){ if (reachCap) reachNote(m); held.add(m); showPress(m, true); liveOn(m, vel || 80); keyAfter(); if (G.on) gKey(m, vel || 80, ts || performance.now()); else if (FE.on) feKey(m); else waitHear(m); }
 function keyUp(m){ held.delete(m); showPress(m, false); liveOff(m); }
 function keyAfter(){ if (typeof harmLive === "function") harmLive(); }
 
@@ -3702,7 +3713,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261028h";
+const BUILD = "261028i";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -5312,6 +5323,42 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
    a question with no match is written to the session record, so the next
    walk-through to write is the one people ask for.
    ===================================================================== */
+/* ---- hand reach: press thumb and little finger as far apart as is comfortable ---- */
+let reachCap = false, reachTimer = 0;
+const REACH_NAMES = { 9: "a minor sixth", 10: "a major sixth", 11: "a minor seventh", 12: "an octave", 13: "a ninth", 14: "a major ninth", 15: "a tenth", 16: "a tenth and a half", 17: "an eleventh", 18: "an eleventh and a half", 19: "a twelfth" };
+function reachShow(msg){
+  const el = $("reachVal"); if (!el) return;
+  el.textContent = msg || (REACH + " semitones" + (REACH === 13 ? " (average hand)" : ""));
+}
+function reachSet(v){
+  REACH = Math.max(9, Math.min(19, Math.round(v)));
+  try { localStorage.setItem("pianissimo-reach", String(REACH)); } catch (e) {}
+  reachShow(); rec({ e: "reach", v: REACH });
+}
+function reachNote(m){
+  clearTimeout(reachTimer);
+  reachTimer = setTimeout(() => {
+    const ks = [...held, m]; if (!reachCap) return;
+    const lo = Math.min(...ks), hi = Math.max(...ks), span = hi - lo;
+    if (ks.length < 2 || span < 8) { reachShow("Press the thumb and little finger keys together"); return; }
+    reachCap = false; const b = $("reachBtn"); if (b) b.textContent = "Measure";
+    reachSet(span);
+    reachShow(REACH + " semitones, " + (REACH_NAMES[REACH] || "") + ". New pieces are fingered for this reach.");
+  }, 700);
+}
+(function addReach(){
+  const grp = $("psKeysGrp"); if (!grp || !grp.parentElement) return;
+  const g = document.createElement("div"); g.className = "ps-grp";
+  g.innerHTML = `<div class="ps-lab">Your hand</div><div class="ps-box"><div class="ps-row"><span>Comfortable reach</span><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="chip" id="reachDn" type="button" aria-label="Smaller">&minus;</button><span id="reachVal" class="ps-val"></span><button class="chip" id="reachUp" type="button" aria-label="Larger">+</button><button class="chip" id="reachBtn" type="button">Measure</button></span></div></div>`;
+  grp.parentElement.insertBefore(g, grp.nextSibling);
+  reachShow();
+  $("reachDn").addEventListener("click", () => reachSet(REACH - 1));
+  $("reachUp").addEventListener("click", () => reachSet(REACH + 1));
+  $("reachBtn").addEventListener("click", () => {
+    reachCap = !reachCap; $("reachBtn").textContent = reachCap ? "Cancel" : "Measure";
+    reachShow(reachCap ? "Spread your hand comfortably: hold the keys under your thumb and little finger together" : null);
+  });
+})();
 const Tour = (function(){
   const sheetOpen = () => { $("psheet").hidden = false; };
   const sheetShut = () => { $("psheet").hidden = true; };
