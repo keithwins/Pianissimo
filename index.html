@@ -1197,12 +1197,14 @@ function planFingering(piece){
       let cands = combos(ns.length);
       const fixed = cands.filter(c => ns.every((n, i) => !n.finger || n.finger === c[i]));
       if (fixed.length) cands = fixed;
-      s.ns = ns; s.single = ns.length === 1;
+      /* a wide two-note span (an octave or a ninth) is the thumb and the little finger; finger 4 does not reach it */
+      if (ns.length === 2 && Math.abs(ns[1].midi - ns[0].midi) >= 9) { const wide = cands.filter(c => c[0] === 1 && c[1] === 5); if (wide.length) cands = wide; }
+      s.ns = ns; s.single = ns.length === 1; s.wide = ns.length === 2 && Math.abs(ns[1].midi - ns[0].midi) >= 9;
       s.cands = cands.map(c => {
         let cost = 0;
         ns.forEach((n, i) => {
           if (c[i] === 4) cost += 1;                                            // the weakest finger
-          if (c[i] === 1 && fBlack(n.midi)) cost += s.single ? 1 : .5;           // thumb on a black key
+          if (c[i] === 1 && fBlack(n.midi)) cost += s.single ? 4 : s.wide ? 1 : 3;   // thumb on a black key: rarely right alone or in a chord, and an octave leaves no choice
           for (let j = 0; j < i; j++) cost += spanCost(c[j], mir(ns[j].midi), c[i], mir(n.midi), true);
         });
         return { f: c, cost };
@@ -3700,7 +3702,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261028g";
+const BUILD = "261028h";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
