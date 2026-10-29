@@ -2335,6 +2335,8 @@ $("wait").addEventListener("click", e => {
   }
   if (playing) stop();
   withAudio(() => enterWait(stepIdx >= 0 ? stepIdx : S.a));
+  /* for finding out why a first choice sometimes doesn't take: what the player looked like just after */
+  setTimeout(() => { try { rec({ e: "waitsel", w: S.wait, playing, waitK, auto: !!autoT, midi: midiState, ctx: ctx ? ctx.state : "none", tuning, step: stepIdx, a: S.a, b: S.b, fe: !!FE.on, game: !!G.on }); } catch (e) {} }, 300);
 });
 $("midiBtn").addEventListener("click", () => { ensureCtx(); connectMidi(); });
 (function initMidi(){
@@ -3636,7 +3638,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261028b";
+const BUILD = "261028c";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
