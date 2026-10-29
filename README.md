@@ -10,6 +10,14 @@ The library can be searched and filtered by composer, era, key, meter, tempo and
 
 Requires Chrome (or another Chromium browser) for keyboard and folder access.
 
+## Privacy
+
+Nothing you play, record or store leaves your computer. There is no server, no account and no analytics. Fonts are bundled in the page. The page loads three code libraries from public CDNs (see THIRD_PARTY.md).
+
+## Scores
+
+The starter pieces are public-domain compositions with notes-only encodings. Details and credits are in [THIRD_PARTY.md](THIRD_PARTY.md). If you contribute a score, it must be public domain or openly licensed, with its source noted.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
