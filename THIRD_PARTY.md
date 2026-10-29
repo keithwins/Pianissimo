@@ -10,6 +10,7 @@ The "Add starter pieces" button installs the scores below. The compositions are 
 |---|---|
 | Minuet in G major, BWV Anh. 114 | Mutopia Project (Bach-Gesellschaft edition), public domain |
 | Musette in D major, BWV Anh. 126 | Mutopia Project (Bach-Gesellschaft edition), public domain |
+| Solfeggietto in C minor, H. 220 (C. P. E. Bach) | Notes only, encoded for Pianissimo from the 2011 transcription by R.S.B (IMSLP 95035), CC BY 3.0 |
 | Prelude in C major, BWV 846 | Notes only, encoded for Pianissimo, CC0 1.0 |
 | Waltz in D-flat major, Op. 64 No. 1 | Notes only, encoded for Pianissimo, CC0 1.0 |
 | Maple Leaf Rag (Joplin) | Notes only, encoded for Pianissimo, CC0 1.0 |
