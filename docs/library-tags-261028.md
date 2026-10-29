@@ -26,4 +26,5 @@ The library list can now be searched and filtered without getting busier.
 - Two families: **pitch-path** patterns (follow the scale/arpeggio) and **fixed five-finger** patterns (five-finger major/minor, patterns of finger numbers, the left hand mirrored).
 - They sit in the **one shared list** with an Exercise badge and a Type filter. Tapping a row opens a quiet setup sheet (key, hands, pattern, reach, direction, Start). Once running, a small ‹ key › control in the title bar moves to the next or previous key in circle-of-fifths order, keeping the tempo.
 - Scale fingering follows the standard thumb-position tables (checked against textbook fingering in all 12 keys, both hands); arpeggios use 1-2-3 (and 1-2-3-4) right hand, 5-3-2-1 left hand; both can be edited with the usual fingering editor.
-- Not yet: "drill this pattern" from inside a piece, "pieces using this drill", the "ready for you" nudge, melodic minor, pentatonic, diminished sevenths, parallel thirds/sixths blocks, reading and ear exercises.
+- Done since: "drill this section" from inside a piece (see `drill-and-listen-261029.md`).
+- Not yet: "pieces using this drill", the "ready for you" nudge, melodic minor, pentatonic, diminished sevenths, parallel thirds/sixths blocks, reading and ear exercises.

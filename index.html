@@ -389,6 +389,11 @@ body.practice.rot.flip .dock-in{padding-left:max(16px,env(safe-area-inset-bottom
 .pop .sect{font-size:.92rem}
 .pop .sec-pick{max-width:100%}
 .pop-hint{font-size:.82rem;color:var(--muted);padding:0 4px}
+.ls-box{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:8px}
+.ls-sens{display:flex;align-items:center;gap:10px;font-size:.88rem;color:var(--muted)}
+.ls-sens input{flex:1 1 120px;min-width:100px}
+.ls-lvl{height:6px;border-radius:3px;background:var(--tint);overflow:hidden;margin:6px 4px}
+.ls-lvl i{display:block;height:100%;width:0;background:var(--fg);opacity:.75;transition:width .08s linear}
 .psheet{position:fixed;inset:0;z-index:40;display:flex;justify-content:flex-end;background:rgba(10,12,15,.32)}
 .psheet[hidden]{display:none!important}
 .ps-card{width:min(420px,100%);height:100%;overflow:auto;background:var(--bg);padding:12px 16px 28px;display:flex;flex-direction:column;gap:18px;box-shadow:-12px 0 40px var(--shadow)}
@@ -570,7 +575,7 @@ body.live-fing .fing-row{display:none!important}
     <button class="ptitle" id="ptLib" type="button" aria-label="Open the library"><span class="pt-name" id="ptName">Pianissimo</span><span class="pt-sub js-status" id="ptStatus">Ready</span></button>
     <div class="ptime" id="ptTime" hidden aria-live="off"><svg id="ptTimeSvg" viewBox="0 0 132 28" aria-hidden="true"></svg><span id="ptTimeTxt"></span></div>
     <span class="grow"></span>
-    <div class="pt-slot" id="ptSlot"><span class="exkey" id="exKey" hidden><button class="chip" id="exPrev" type="button" aria-label="Previous key">‹</button><span class="exname" id="exKeyName" aria-live="polite"></span><button class="chip" id="exNext" type="button" aria-label="Next key">›</button></span></div>
+    <div class="pt-slot" id="ptSlot"><span class="exkey" id="exKey" hidden><button class="chip" id="exBack" type="button" hidden>&larr; Piece</button><button class="chip" id="exPrev" type="button" aria-label="Previous key">‹</button><span class="exname" id="exKeyName" aria-live="polite"></span><button class="chip" id="exNext" type="button" aria-label="Next key">›</button></span></div>
     <button class="pbtn icon" id="setBtn" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
   </div>
    <div class="bar-tools">
@@ -655,7 +660,7 @@ body.live-fing .fing-row{display:none!important}
       <button class="pbtn" id="secBtn" type="button" aria-haspopup="true"><span id="secVal">Whole piece</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
       <div class="pop" id="tPop" hidden><div class="pop-h">Tempo</div></div>
       <div class="pop" id="wPop" hidden><div class="pop-h">Wait for me</div></div>
-      <div class="pop" id="sPop" hidden><div class="pop-h">Section</div><div id="sPopTxt"></div><div class="pop-row" id="sRow1"></div><div class="pop-row" id="sRow2"></div><div class="pop-hint">Tap a note on the strip or in the falling notes, then Set start or Set end. A section can start and end on any note.</div></div>
+      <div class="pop" id="sPop" hidden><div class="pop-h">Section</div><div id="sPopTxt"></div><div class="pop-row" id="sRow1"></div><div class="pop-row" id="sRow2"></div><div class="pop-row" id="sRow3"><button class="chip" id="drillBtn" type="button" hidden>Drill this section</button></div><div class="pop-hint">Tap a note on the strip or in the falling notes, then Set start or Set end. A section can start and end on any note.</div></div>
     </div></div>
   </div>
   <div class="psheet" id="psheet" hidden>
@@ -676,6 +681,15 @@ body.live-fing .fing-row{display:none!important}
     <p class="g-hint">Worked out from the notes by the player. Chord readings can be wrong in places, especially with fast passing notes.</p>
     <div id="thBody"></div>
     <div class="g-bar"><button class="tool" id="thCopy" type="button">Copy for Claude</button><span class="g-hint" id="thCopyNote">Copies these facts with a request, ready to paste into a chat with Claude for the story behind them.</span></div>
+  </div>
+</section>
+
+<section class="theory" id="drill" hidden aria-label="Drill this section">
+  <div class="th-card">
+    <div class="g-top"><span class="g-title th-h">Drill this</span><span class="g-key" id="drTitle"></span><span class="grow"></span><button class="chip" id="drClose" type="button">Close</button></div>
+    <p class="g-hint" id="drWhy"></p>
+    <div class="lib-exsheet" id="drRows"></div>
+    <div class="g-bar"><button class="tool" id="drGo" type="button">Start this drill</button><span class="g-hint" id="drLine"></span></div>
   </div>
 </section>
 
@@ -1386,6 +1400,12 @@ const setStatus = t => { statusEls.forEach(el => { el.textContent = t; }); };
 const tempos = document.querySelectorAll(".js-tempo"), bpmOuts = document.querySelectorAll(".js-bpm");
 
 let P = null, ON = [], BEATS = [], barOnsets = [];
+let DRILLFROM = null;      // set while an exercise was started from a piece with "Drill this": { id, title }, so the exercise can lead back
+/* Listen (microphone) state; the code that uses it is with Wait for me, below */
+const LS = { want: false, on: false, starting: false, sens: .5, stream: null, src: null, an: null, spec: null, wave: null, timer: 0, bins: null,
+  pk: null, nowPk: null, nowSnr: null, st: null, tickN: 0, ons: [], own: [], level: 0 };
+const lsAvail = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+try { const s = JSON.parse(localStorage.getItem("pianissimo-listen") || "null"); if (s) { LS.want = !!s.want && lsAvail; if (s.sens >= 0 && s.sens <= 1) LS.sens = s.sens; } } catch (e) {}
 const S = { bpm: 100, a: 0, b: 0, loop: true, countIn: true, click: false, hand: { r: 1, l: 1 }, wait: "off", out: "laptop", repeats: true };
 
 (function loadGlobals(){
@@ -1892,6 +1912,7 @@ function setPiece(p){
   if (playing) stop();
   stopAuto(); waitK = -1; passes = 0; $("waitInfo").textContent = "";
   if (FE.piece && FE.piece !== p) feLeave();
+  if (!p.ex) DRILLFROM = null;           // a real piece is open again: nothing to go back to
   if (!p.src) { p.notes.forEach(n => { n.st = n.t; }); p.src = { bars: p.bars, notes: p.notes }; }
   P = p;
   if (P.src.notes.some(n => !(n.finger > 0))) { try { planFingering(P.src); } catch (e) {} }   // only if it couldn't be kept
@@ -2348,7 +2369,7 @@ function soundTheirs(o){
 }
 function stopAuto(){ if (autoT) { clearTimeout(autoT); autoT = null; } early.clear(); chainAt = 0; }
 function enterWait(k){
-  stopAuto(); waitK = -1; passT0 = 0; extra = 0;
+  stopAuto(); waitK = -1; passT0 = 0; extra = 0; LS.ons.length = 0;     // whatever the microphone heard before this doesn't count
   if (!waitOn() || !P) return;
   const t = findMine(k);
   if (t < 0) { setStatus(`Wait for me: this section has no ${S.wait === "r" ? "right" : "left"}-hand notes`); return; }
@@ -2417,7 +2438,8 @@ function syncWaitUI(){ $("wait").querySelectorAll("button").forEach(b => b.setAt
 $("wait").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   S.wait = b.dataset.w; passes = 0; $("waitInfo").textContent = ""; syncWaitUI();
-  if (midiState !== "on") connectMidi();
+  if (midiState !== "on" && navigator.requestMIDIAccess && midiAllowedHere()) connectMidi();
+  if (S.wait !== "off" && LS.want && !LS.on) listenStart();
   if (S.wait === "off") {
     stopAuto(); waitK = -1;
     if (stepIdx >= 0 && !playing) { clearMarks(); mark(ON[stepIdx], Infinity); }
@@ -2425,9 +2447,137 @@ $("wait").addEventListener("click", e => {
   }
   if (playing) stop();
   withAudio(() => enterWait(stepIdx >= 0 ? stepIdx : S.a));
+  if (!navigator.requestMIDIAccess && !LS.want) setStatus("No keyboard cable here: turn on Listen in this menu so the piece can hear you");
   /* for finding out why a first choice sometimes doesn't take: what the player looked like just after */
   setTimeout(() => { try { rec({ e: "waitsel", w: S.wait, playing, waitK, auto: !!autoT, midi: midiState, ctx: ctx ? ctx.state : "none", tuning, step: stepIdx, a: S.a, b: S.b, fe: !!FE.on, game: !!G.on }); } catch (e) {} }, 300);
 });
+/* =====================================================================
+   Listen: Wait for me by microphone, for a keyboard with no MIDI cable
+   The player already knows which notes it is waiting for, so it doesn't have to work out
+   what you played. It watches the sound for those notes starting: a clear peak at the
+   note's pitch that rises sharply (a new strike, not a note still ringing). A note a whole
+   octave (or an octave and a fifth, or two octaves) below that is much louder explains a
+   peak as its overtone, so it doesn't count. Notes the player plays for you are ignored
+   while they sound. Low notes are close together in pitch, which is hard for any microphone, so
+   below G3 each key is followed by its second overtone instead; that works, but it is the
+   least certain part of the range. Fast repeated notes are not
+   caught. The count of extra notes is not kept in this mode.
+   ===================================================================== */
+const LS_TICK = 40, LS_H = 8, LS_AGO = 3, LS_RISE = 6, LS_LO = 21, LS_HI = 108, LS_LOWM = 55;     // below LS_LOWM (G3) a key is followed by its second overtone, where semitones are twice as far apart
+/* a sounding key also rings at 12, 19, 24, 28, 31, 34, 36 and 38 semitones above it (its 2nd to 9th partials); a note up there that is much quieter than the key below is that key's overtone */
+const LS_PARTIALS = [[12, 3], [19, 6], [24, 6], [28, 8], [31, 8], [34, 8], [36, 8], [38, 8]];
+const lsScr = new Float32Array(40);
+function lsMedian(sp, fl){
+  const n = fl.length; if (!n) return -120;
+  for (let i = 0; i < n; i++) {
+    let x = sp[fl[i]]; if (!(x > -120)) x = -120;
+    let j = i - 1; while (j >= 0 && lsScr[j] > x) { lsScr[j + 1] = lsScr[j]; j--; }
+    lsScr[j + 1] = x;
+  }
+  return lsScr[n >> 1];
+}
+/* where in the spectrum each key lives: the bins at its pitch (and an octave up, used for the low keys), and a sample of the bins around it for the background level */
+function lsBuild(){
+  const hz = ctx.sampleRate / LS.an.fftSize, nb = LS.an.frequencyBinCount, B = [], k = Math.pow(2, .45 / 12);
+  const rng = f0 => { const lo = Math.max(1, Math.floor(f0 / k / hz)); return [lo, Math.min(nb - 2, Math.max(lo, Math.ceil(f0 * k / hz)))]; };
+  for (let m = LS_LO; m <= LS_HI; m++) {
+    const f = 440 * Math.pow(2, (m - 69) / 12), [lo, hi] = rng(f), [lo2, hi2] = rng(2 * f);
+    const a = Math.max(1, Math.floor(f * .78 / hz)), z = Math.min(nb - 2, Math.ceil(f * 1.28 / hz)), s0 = f * .94 / hz, s1 = f * 1.06 / hz, step = Math.max(1, Math.floor((z - a) / 24)), fl = [];
+    for (let i = a; i <= z; i += step) if (i < s0 || i > s1) fl.push(i);
+    const a2 = Math.max(1, Math.floor(2 * f * .78 / hz)), z2 = Math.min(nb - 2, Math.ceil(2 * f * 1.28 / hz)), t0 = 2 * f * .94 / hz, t1 = 2 * f * 1.06 / hz, st2 = Math.max(1, Math.floor((z2 - a2) / 24)), fl2 = [];
+    for (let i = a2; i <= z2; i += st2) if (i < t0 || i > t1) fl2.push(i);
+    B[m] = { lo, hi, lo2, hi2, fl, fl2 };
+  }
+  LS.bins = B;
+  LS.pk = []; LS.st = []; LS.nowPk = new Float32Array(128).fill(-120); LS.nowSnr = new Float32Array(128);
+  LS.f1Pk = new Float32Array(128).fill(-120); LS.f1Snr = new Float32Array(128);        // the level at a key's own pitch, whichever partial is followed
+  for (let m = 0; m < 128; m++) { LS.pk[m] = new Float32Array(LS_H).fill(-120); LS.st[m] = { armed: true, max: -200 }; }
+}
+function lsTick(){
+  const an = LS.an; if (!an || !ctx) return;
+  an.getFloatFrequencyData(LS.spec);
+  const sp = LS.spec, now = performance.now(), n = LS.tickN++, cur = n % LS_H, old = (n - LS_AGO + LS_H * 4) % LS_H, thr = 28 - 16 * LS.sens, B = LS.bins;
+  for (let m = LS_LO; m <= LS_HI; m++) {
+    const b = B[m]; let p = -120;
+    for (let i = b.lo; i <= b.hi; i++) if (sp[i] > p) p = sp[i];
+    const s1 = p - lsMedian(sp, b.fl); LS.f1Pk[m] = p; LS.f1Snr[m] = s1;
+    if (m < LS_LOWM) { let p2 = -120; for (let i = b.lo2; i <= b.hi2; i++) if (sp[i] > p2) p2 = sp[i]; LS.nowPk[m] = p2; LS.nowSnr[m] = p2 - lsMedian(sp, b.fl2); }
+    else { LS.nowPk[m] = p; LS.nowSnr[m] = s1; }
+    LS.pk[m][cur] = LS.nowPk[m];
+  }
+  if (n >= LS_AGO) for (let m = LS_LO; m <= LS_HI; m++) {
+    const st = LS.st[m], p = LS.nowPk[m], s = LS.nowSnr[m];
+    if (!st.armed) { if (p > st.max) st.max = p; if (p < st.max - 4 || s < thr - 6) st.armed = true; }
+    if (!st.armed || s < thr || p <= -85 || p - LS.pk[m][old] < LS_RISE) continue;
+    let ok = true;
+    if (m < LS_LOWM && LS.f1Snr[m] < thr - 8) ok = false;                                                                       // a low key's overtone with nothing at its own pitch: it's the key an octave up
+    for (const [d, margin] of LS_PARTIALS) if (m - d >= LS_LO && LS.f1Snr[m - d] >= thr && LS.f1Pk[m - d] - p > margin) ok = false;      // an overtone of something lower and louder (a real octave played together is about as loud as the note below it)
+    const slack = m < LS_LOWM ? 0 : 3;
+    if (m > LS_LO && (LS.nowPk[m - 1] > p + slack || LS.nowPk[m + 1] > p + slack)) ok = false;                                 // leakage from a stronger neighbour
+    if (!ok) continue;
+    st.armed = false; st.max = p;
+    LS.ons.push({ m, t: now, snr: Math.round(s), used: false });
+  }
+  an.getFloatTimeDomainData(LS.wave);
+  { const w = LS.wave, L = w.length; let sum = 0; for (let i = L - 4096; i < L; i++) sum += w[i] * w[i]; LS.level = Math.sqrt(sum / 4096); }
+  lsFeed(now);
+  const el = $("lsLvl"); if (el) el.style.width = Math.max(0, Math.min(100, (20 * Math.log10(LS.level + 1e-6) + 60) / 60 * 100)).toFixed(0) + "%";
+}
+/* hand what was heard to Wait for me, the way a key press would be */
+function lsFeed(now){
+  LS.own = LS.own.filter(x => now - x.from < 8000);
+  LS.ons = LS.ons.filter(o => !o.used && now - o.t < 3000);
+  if (!waitOn() || waitK < 0 || autoT) return;
+  for (const o of LS.ons) {
+    if (!need.has(o.m) || got.has(o.m)) continue;
+    if (LS.own.some(x => x.m === o.m && o.t >= x.from - 80 && o.t <= x.to)) continue;      // the player's own note, played for you
+    o.used = true;
+    const k0 = waitK;
+    try { rec({ e: "heard", m: o.m, snr: o.snr }); } catch (e) {}
+    showPress(o.m, true); setTimeout(() => { if (!held.has(o.m)) showPress(o.m, false); }, 300);
+    waitHear(o.m);
+    if (waitK !== k0) break;
+  }
+}
+/* the notes the player sounds for you are marked so they aren't mistaken for yours */
+soundTheirs = (orig => function(o){
+  if (LS.on) { const now = performance.now(), spq = 60 / S.bpm; theirs(o).forEach(n => LS.own.push({ m: n.midi, from: now, to: now + n.d * spq * 950 + 450 })); }
+  return orig.apply(this, arguments);
+})(soundTheirs);
+function lsSave(){ try { localStorage.setItem("pianissimo-listen", JSON.stringify({ want: LS.want, sens: LS.sens })); } catch (e) {} }
+function lsSync(){
+  const b = $("lsBtn"); if (!b) return;
+  b.setAttribute("aria-pressed", String(LS.want)); b.textContent = LS.on ? "Listening · tap to stop" : LS.starting ? "Starting…" : "Listen with microphone";
+  $("lsMore").hidden = !LS.want; $("lsSens").value = String(Math.round(LS.sens * 100));
+}
+async function listenStart(){
+  if (LS.on || LS.starting) return;
+  if (!lsAvail) { LS.want = false; lsSave(); lsSync(); setStatus("This browser can't use a microphone here"); return; }
+  LS.starting = true; lsSync();
+  try {
+    if (!ensureCtx()) throw new Error("no audio");
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    if (!LS.want) { stream.getTracks().forEach(t => t.stop()); return; }       // switched off while the browser was asking
+    const an = ctx.createAnalyser(); an.fftSize = 16384; an.smoothingTimeConstant = 0; an.minDecibels = -120; an.maxDecibels = 0;
+    LS.src = ctx.createMediaStreamSource(stream); LS.src.connect(an);          // listens only: never connected to the speakers
+    LS.stream = stream; LS.an = an; LS.spec = new Float32Array(an.frequencyBinCount); LS.wave = new Float32Array(an.fftSize);
+    lsBuild(); LS.tickN = 0; LS.ons = []; LS.own = []; LS.on = true;
+    LS.timer = setInterval(lsTick, LS_TICK);
+    setStatus("Listening · play the lit notes");
+    if (S.wait !== "off" && P && waitK < 0 && !autoT) enterWait(stepIdx >= 0 ? stepIdx : S.a);
+  } catch (e) {
+    LS.want = false; lsSave();
+    setStatus(e && (e.name === "NotAllowedError" || e.name === "SecurityError") ? "The microphone is blocked: allow it in the site settings by the address, then try again"
+      : e && e.name === "NotFoundError" ? "No microphone found" : "The microphone didn't start: " + ((e && e.message) || "unknown problem"));
+  } finally { LS.starting = false; lsSync(); }
+}
+function listenStop(){
+  clearInterval(LS.timer); LS.timer = 0;
+  try { if (LS.src) LS.src.disconnect(); } catch (e) {}
+  try { if (LS.stream) LS.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  LS.on = false; LS.stream = LS.src = LS.an = null; LS.ons = []; lsSync();
+}
+addEventListener("pagehide", listenStop);
 $("midiBtn").addEventListener("click", () => { ensureCtx(); connectMidi(); });
 (function initMidi(){
   syncWaitUI(); syncOutUI();
@@ -2679,9 +2829,10 @@ function exMake(fid, q){
   if (fam.kind === "path" && !fam.fing) fillFingering(p);          // fingering by the same planner as for pieces, written into the score as a suggestion
   return p;
 }
-function exStart(fid, q){
+function exStart(fid, q, from){
   exSave(exFam(fid), q);
   let p; try { p = exMake(fid, q); } catch (e) { setLibNote("That exercise couldn't be built: " + (e.message || e), true); return; }
+  DRILLFROM = from || null;
   setPiece(p);
   if (!document.body.classList.contains("practice") && P) $("land").click();
 }
@@ -2696,6 +2847,9 @@ function exStep(d){
 function exSync(){
   const on = !!(P && P.ex); $("exKey").hidden = !on;
   if (on) $("exKeyName").textContent = EX_NAMES[exFam(P.ex.fid).mode][P.ex.q.tonic];
+  const back = $("exBack"); back.hidden = !(on && DRILLFROM);
+  if (DRILLFROM) back.setAttribute("aria-label", "Back to " + DRILLFROM.title);
+  $("drillBtn").hidden = !P || !!P.ex;
 }
 $("exPrev").addEventListener("click", () => exStep(-1));
 $("exNext").addEventListener("click", () => exStep(1));
@@ -2723,6 +2877,136 @@ function exSheet(e){
   box.append(go);
   return box;
 }
+
+/* ---------- drill this section: from inside a piece to a matching exercise ----------
+   Pia reads the notes of the chosen section (or the whole piece when none is chosen), guesses
+   what kind of figure they are (steps along a scale, a broken chord, or a hand that stays in one
+   position), then the key, the hand and the reach, and offers that exercise. Everything can be
+   changed before it starts. The exercise gets a "Piece" button that returns to the same piece
+   with the same section. */
+const DR_SETS = { major: [0, 2, 4, 5, 7, 9, 11], natminor: [0, 2, 3, 5, 7, 8, 10], harminor: [0, 2, 3, 5, 7, 8, 11] };
+const DR_CHORDS = { arpmaj: [0, 4, 7], arpmin: [0, 3, 7], arpdom: [0, 4, 7, 10] };
+const drPc = m => ((m % 12) + 12) % 12;
+/* "A♭ major" → the pitch class of A♭, and whether it is minor */
+function drKeyHint(){
+  let key = P.facts && P.facts.key;
+  if (!key) { try { const e = libEntries().find(x => x.id === P.id); key = e && e.facts && e.facts.key; } catch (e) {} }
+  const m = /^([A-G])([♯♭#b]?)\s*(major|minor)?/i.exec(String(key || "")); if (!m) return null;
+  const pc = drPc({ C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === "♯" || m[2] === "#" ? 1 : m[2] ? -1 : 0));
+  return { pc, minor: /minor/i.test(m[3] || "") };
+}
+function drWeights(notes){
+  const w = new Array(12).fill(0); let tot = 0;
+  for (const n of notes) { const x = Math.min(2, Math.max(.25, n.d || .5)); w[drPc(n.midi)] += x; tot += x; }
+  return { w, tot };
+}
+/* which scale (major, natural or harmonic minor) holds the notes best; the key the piece is in breaks ties between a major key and its relative minor */
+function drKeyFit(notes, hint){
+  const { w, tot } = drWeights(notes); if (!tot) return null;
+  let best = null;
+  for (let t = 0; t < 12; t++) for (const fid of Object.keys(DR_SETS)) {
+    let inn = 0; for (const i of DR_SETS[fid]) inn += w[(t + i) % 12];
+    const score = 3 * inn / tot + w[t] / tot + .5 * w[(t + 7) % 12] / tot - (fid === "harminor" ? .06 : 0)
+      + (hint && hint.pc === t && hint.minor === (fid !== "major") ? .25 : 0);
+    if (!best || score > best.score) best = { t, fid, score };
+  }
+  return best;
+}
+/* which chord (major, minor, dominant seventh) the notes outline, and on what root */
+function drChordFit(notes){
+  const { w, tot } = drWeights(notes); if (!tot) return null;
+  let best = null;
+  for (let t = 0; t < 12; t++) for (const fid of Object.keys(DR_CHORDS)) {
+    let inn = 0; for (const i of DR_CHORDS[fid]) inn += w[(t + i) % 12];
+    const score = 3 * inn / tot + .6 * w[t] / tot - (fid === "arpdom" ? .08 : 0);
+    if (!best || score > best.score) best = { t, fid, score };
+  }
+  return best;
+}
+function drillGuess(){
+  if (!P || P.ex || !ON.length) return null;
+  const notes = []; for (let k = S.a; k <= S.b; k++) for (const n of ON[k].notes) notes.push(n);
+  const N = notes.length; if (N < 3) return null;
+  const nr = notes.filter(n => n.hand === "r").length;
+  const hand = nr >= .7 * N ? "r" : nr <= .3 * N ? "l" : "b";
+  const use = hand === "b" ? notes : notes.filter(n => n.hand === hand);
+  /* the reach is how far one hand travels, not the gap between the hands */
+  const spanOf = h => { let l = 127, u = 0; for (const n of use) if (n.hand === h) { if (n.midi < l) l = n.midi; if (n.midi > u) u = n.midi; } return u >= l ? [l, u] : null; };
+  let lo = 127, span = 0;
+  for (const h of ["r", "l"]) { const s = spanOf(h); if (s && s[1] - s[0] >= span) { span = s[1] - s[0]; lo = s[0]; } }
+  const oct = Math.max(1, Math.min(3, Math.ceil(span / 12)));
+  let sh = {}; try { sh = shapeOf({ notes }, 0); } catch (e) {}
+  const runs = sh["scale runs"] ? sh["scale runs"][0] : 0, arps = sh["arpeggios"] ? sh["arpeggios"][0] : 0;
+  const mk = (fid, tonic, why) => ({ fid, why, q: { tonic, hand, pat: exPats(exFam(fid))[0].id, oct, dir: "ud" } });
+  const nm = (fid, t) => EX_NAMES[exFam(fid).mode][t] + " " + exFam(fid).lower;
+  if (arps >= .2 && arps > runs) {
+    const c = drChordFit(use);
+    return mk(c.fid, c.t, `These notes mostly leap around one chord, so the drill is the ${nm(c.fid, c.t)}.`);
+  }
+  const hint = drKeyHint();
+  if (span <= 7 && use.length >= 6) {              // a hand that stays in one position: is it the five keys of a major or minor five-finger position?
+    const { w, tot } = drWeights(use); let best = null;
+    for (const [fid, iv] of [["fingmaj", [0, 2, 4, 5, 7]], ["fingmin", [0, 2, 3, 5, 7]]]) for (let t = 0; t < 12; t++) {
+      let inn = 0; for (const i of iv) inn += w[(t + i) % 12];
+      const fit = inn / tot, score = fit + (t === drPc(lo) ? .2 : 0) + (hint && hint.pc === t && hint.minor === (fid === "fingmin") ? .05 : 0);
+      if (fit >= .95 && (!best || score > best.score)) best = { fid, t, score };
+    }
+    if (best) return mk(best.fid, best.t, `The hand stays in one small position, so the drill is the ${nm(best.fid, best.t)}.`);
+  }
+  const k = drKeyFit(use, hint);
+  return mk(k.fid, k.t, (runs >= .2 ? "These notes mostly move step by step, so the drill is the " : "No one figure stands out, so the drill is the scale that fits best: the ") + nm(k.fid, k.t) + ".");
+}
+const DR = { g: null };
+function drillOpen(){
+  const g = drillGuess();
+  if (!g) { setStatus("Too few notes to drill here: set a start and end around a passage first"); return; }
+  DR.g = g; drillDraw(); $("drill").hidden = false;
+}
+function drillSectionText(){
+  if (S.a === 0 && S.b === ON.length - 1) return "the whole piece";
+  const a = P.bars[ON[S.a].bar].label, b = P.bars[ON[S.b].bar].label;
+  return a === b ? "bar " + a : "bars " + a + "–" + b;
+}
+function drillDraw(){
+  const g = DR.g, fam = exFam(g.fid), q = g.q, pats = exPats(fam), rows = $("drRows");
+  const whole = S.a === 0 && S.b === ON.length - 1;
+  $("drTitle").textContent = P.title + " · " + drillSectionText();
+  $("drWhy").textContent = g.why + (whole ? " No section is chosen, so this was guessed from the whole piece; a chosen passage gives a better match." : " You can change anything before it starts.");
+  rows.innerHTML = "";
+  const chips = (label, items, cur, onPick) => {
+    const r = mkEl("div", "ex-row"), c = mkEl("div", "ex-chips"); r.append(mkEl("span", "te-lab", label)); c.setAttribute("role", "group"); c.setAttribute("aria-label", label);
+    items.forEach(([v, txt]) => { const b = mkEl("button", "chip", txt); b.type = "button"; b.setAttribute("aria-pressed", String(cur === v)); b.addEventListener("click", () => { onPick(v); drillDraw(); }); c.append(b); });
+    r.append(c); return r;
+  };
+  const sel = (label, items, cur, onPick) => {
+    const r = mkEl("div", "ex-row"), s = mkEl("select"); r.append(mkEl("span", "te-lab", label)); s.setAttribute("aria-label", label);
+    items.forEach(([v, txt]) => { const o = mkEl("option", "", txt); o.value = String(v); s.appendChild(o); });
+    s.value = String(cur); s.addEventListener("change", () => { onPick(s.value); drillDraw(); }); r.append(s); return r;
+  };
+  rows.append(sel("Material", EX_FAM.map(f => [f.id, f.name]), g.fid, v => {
+    g.fid = v; const f2 = exFam(v), p2 = exPats(f2); if (!p2.some(p => p.id === q.pat)) q.pat = p2[0].id;
+  }));
+  rows.append(sel("Key", EX_NAMES[fam.mode].map((n, i) => [i, n]), q.tonic, v => { q.tonic = +v; }));
+  rows.append(chips("Hands", [["r", "Right"], ["l", "Left"], ["b", "Both"]], q.hand, v => { q.hand = v; }));
+  rows.append(sel("Pattern", pats.map(p => [p.id, p.name]), q.pat, v => { q.pat = v; }));
+  if (fam.kind === "path") {
+    rows.append(chips("Reach", [[1, "1 octave"], [2, "2 octaves"], [3, "3 octaves"]], q.oct, v => { q.oct = v; }));
+    rows.append(chips("Direction", [["u", "Up"], ["ud", "Up and down"]], q.dir, v => { q.dir = v; }));
+  }
+  const pat = pats.find(p => p.id === q.pat) || pats[0];
+  $("drLine").textContent = `${EX_NAMES[fam.mode][q.tonic]} ${fam.lower} · ${pat.name.toLowerCase()} · ${EX_HANDS[q.hand]}`;
+}
+$("drillBtn").addEventListener("click", () => { $("sPop").hidden = true; drillOpen(); });
+$("drClose").addEventListener("click", () => { $("drill").hidden = true; });
+$("drGo").addEventListener("click", () => {
+  const g = DR.g; if (!g || !P || P.ex) return;
+  $("drill").hidden = true;
+  const from = { id: P.id, title: P.title };
+  save();                                                    // the section is kept with the piece, so coming back finds it
+  rec({ e: "drill", from: P.id, fid: g.fid, q: { ...g.q }, a: S.a, b: S.b });
+  exStart(g.fid, { ...g.q }, from);
+});
+$("exBack").addEventListener("click", () => { const f = DRILLFROM; if (f) openPiece(f.id); });
 
 /* ---------- search, filters and tags ----------
    One quiet row on top: a search box and a Filter button. The filters (composer, era, key,
@@ -5340,7 +5624,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
     $("loopBtn").setAttribute("aria-pressed", String(!!S.loop));
     set($("wVal"), "textContent", ({ off: "Off", r: "Right", l: "Left", both: "Both" })[S.wait] || "Off");
     $("wBtn").classList.toggle("ink", S.wait && S.wait !== "off");
-    set($("wBtn"), "hidden", $("midiRow").hidden);
+    set($("wBtn"), "hidden", $("midiRow").hidden && !lsAvail);
     set($("psKeysGrp"), "hidden", $("midiRow").hidden);
     set($("secVal"), "textContent", sectLabel());
   }
@@ -5352,6 +5636,10 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
      While the player is running, each key you press is matched to the nearest note
      of that pitch that was due, and the difference shows in the top bar
      (in milliseconds, against the player's own beat). */
+  /* The little readout in the top bar is switched off (261029): it is to be rethought as something livelier and
+     easier to take in at a glance, probably part of a game. The measuring and the "dt" lines in the session record
+     carry on; set SHOW_TIMING to true to bring the readout back. */
+  const SHOW_TIMING = false;
   const DT = { hist: [], tol: 40 };
   function dueSig(k, i){ return i === 0 ? ON[k].t - play0.base : play0.len0 + (i - 1) * secLen + (ON[k].t - ON[S.a].t); }
   function measure(m, ts){
@@ -5374,7 +5662,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
     const ms = Math.round(best.d * spb * 1000 - outLat * 1000);
     DT.hist.push(ms); if (DT.hist.length > 16) DT.hist.shift();
     try { rec({ e: "dt", m, k: best.k, ms }); } catch (e) {}
-    drawTime(ms);
+    if (SHOW_TIMING) drawTime(ms);
   }
   function drawTime(ms){
     const svg = $("ptTimeSvg"), W = 132, H = 28, R = 120, x0 = 4, x1 = W - 4;
@@ -5394,6 +5682,26 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
     $("ptTime").title = `Last note ${a < 6 ? "on time" : a + " ms " + (ms < 0 ? "early" : "late")}. The shaded band is ±${DT.tol} ms.`;
   }
   keyDown = (o => function(m, vel, ts){ o.apply(this, arguments); try { if (playing && !G.on && !FE.on) measure(m, ts || performance.now()); } catch (e) {} })(keyDown);
+})();
+
+/* Listen controls: they sit in the Wait for me menu, under the choice of hand */
+(function listenUI(){
+  const pop = $("wPop"); if (!pop || !lsAvail) return;
+  const box = document.createElement("div"); box.className = "ls-box";
+  box.innerHTML = `<button class="chip" id="lsBtn" type="button" aria-pressed="false">Listen with microphone</button>
+    <div id="lsMore" hidden>
+      <label class="ls-sens"><span>Sensitivity</span><input type="range" id="lsSens" min="0" max="100" step="5" value="50" aria-label="Microphone sensitivity"></label>
+      <div class="ls-lvl" aria-hidden="true"><i id="lsLvl"></i></div>
+      <div class="pop-hint">For a keyboard with no MIDI cable. The bar shows what the microphone hears: if it barely moves when you play, turn the sensitivity up or move the microphone closer. Works best from middle C upward, in a quiet room, at a calm pace.</div>
+    </div>`;
+  pop.appendChild(box);
+  $("lsBtn").addEventListener("click", () => {
+    LS.want = !LS.want; lsSave();
+    if (LS.want) { ensureCtx(); listenStart(); } else listenStop();
+    lsSync();
+  });
+  $("lsSens").addEventListener("input", e => { LS.sens = +e.target.value / 100; lsSave(); });
+  lsSync();
 })();
 
 /* =====================================================================
