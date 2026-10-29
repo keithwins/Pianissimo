@@ -18,6 +18,12 @@ Nothing you play, record or store leaves your computer. There is no server, no a
 
 The starter pieces are public-domain compositions with notes-only encodings. Details and credits are in [THIRD_PARTY.md](THIRD_PARTY.md). If you contribute a score, it must be public domain or openly licensed, with its source noted.
 
+### Your own scores
+
+Pianissimo is a player, not a distributor. It supplies no music beyond the public-domain starter pieces, and it never fetches, sells or shares scores or links to score stores. Scores you add stay in your browser or your own folder, and you are responsible for having the right to use them.
+
+Pianissimo reads MusicXML and MIDI, not PDF. Free and paid tools online can convert a PDF to MusicXML. For good results, start from a clean, printed score, and check the converted file against the original before adding it. (This is not legal advice; some sellers' terms limit file conversion.)
+
 ## License
 
 MIT, see [LICENSE](LICENSE).

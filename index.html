@@ -94,6 +94,9 @@ input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--fg)}
 .lib-confirm{display:flex;align-items:center;gap:8px;padding:8px 10px;flex-wrap:wrap;width:100%}
 .lib-note{font-size:.86rem;color:var(--muted);min-height:1.2em;overflow-wrap:anywhere}
 .lib-note.warn{color:var(--warn)}
+.lib-rights{font-size:.84rem;color:var(--muted);margin:2px 0 6px}
+.lib-rights summary{cursor:pointer;width:max-content}
+.lib-rights p{margin:6px 0 0;max-width:62ch}
 
 /* library search, filters and tags: one quiet row; everything else opens only when asked */
 .lib-find{display:flex;align-items:center;gap:8px}
@@ -520,6 +523,11 @@ body.live-fing .fing-row{display:none!important}
         <button class="tool" id="addStarter" type="button">Add starter pieces</button>
       </div>
     </div>
+    <details class="lib-rights" id="libRights">
+      <summary>About your scores</summary>
+      <p>Pianissimo is a player. It supplies no music except the public-domain starter pieces, and it never fetches, sells or shares scores. Files you add stay in this browser or your own folder. You are responsible for having the right to use whatever you load.</p>
+      <p>It reads MusicXML and MIDI, not PDF. Free and paid tools online can convert a PDF to MusicXML. For good results, start from a clean, printed score, and check the converted file against the original before adding it here.</p>
+    </details>
     <div class="lib-find" id="libFind" hidden>
       <input type="search" id="libFilter" placeholder="Search title, composer or tag" aria-label="Search the library">
       <button class="chip" id="libFiltBtn" type="button" aria-expanded="false" aria-controls="libFilters">Filter</button>
@@ -3316,8 +3324,9 @@ async function removePiece(e){
 async function importFiles(fileList){
   const files = [...fileList], addedIds = [];
   if (!files.length) return addedIds;
-  let added = 0, lastId = null; const skipped = [], failed = [], dups = [];
+  let added = 0, lastId = null, pdfs = 0; const skipped = [], failed = [], dups = [];
   for (const f of files) {
+    if (/\.pdf$/i.test(f.name) || f.type === "application/pdf") { pdfs++; continue; }
     if (!/\.(musicxml|xml|mxl|midi?)$/i.test(f.name)) { skipped.push(f.name); continue; }
     setLibNote(`Reading ${f.name}…`);
     try {
@@ -3343,8 +3352,9 @@ async function importFiles(fileList){
   if (added) bits.push(`Added ${added} piece${added > 1 ? "s" : ""}.`);
   if (dups.length) bits.push(`${dups.length} already in the library.`);
   if (skipped.length) bits.push(`${skipped.length} file${skipped.length > 1 ? "s" : ""} skipped (not MusicXML or MIDI).`);
+  if (pdfs) bits.push(`Pianissimo reads MusicXML and MIDI, not PDF. Free and paid tools online can convert a PDF to MusicXML; start from a clean, printed score and check the converted file against the original before adding it here.`);
   if (failed.length) bits.push(`Couldn't read: ${failed.join("; ")}.`);
-  setLibNote(bits.join(" ") || "Nothing added.", failed.length > 0);
+  setLibNote(bits.join(" ") || "Nothing added.", failed.length > 0 || (pdfs > 0 && !added));
   if (lastId && added === 1) openPiece(lastId);
   renderLib();
   return addedIds;
