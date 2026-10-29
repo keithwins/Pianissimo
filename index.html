@@ -435,6 +435,36 @@ body.rot .ptime svg{width:96px} body.rot .pbtn .q{display:inline}
 body:not(.practice) .dock{display:none}
 .back-prac{position:fixed;top:12px;right:16px;z-index:6;height:40px;padding:0 16px;font-weight:600;background:var(--fg);color:var(--bg);border-color:var(--fg)}
 body.practice .back-prac{display:none}
+/* Help and walk-throughs (261028) */
+.tour-veil{position:fixed;inset:0;z-index:80;pointer-events:none}
+.tour-veil[hidden],.tour-card[hidden],.help-card[hidden],.tour-offer[hidden]{display:none!important}
+.tour-hole{position:fixed;border-radius:14px;box-shadow:0 0 0 100vmax rgba(10,12,15,.58);transition:left .22s,top .22s,width .22s,height .22s;pointer-events:none}
+.tour-hole.none{box-shadow:0 0 0 100vmax rgba(10,12,15,.58);width:0;height:0}
+.tour-card{position:fixed;z-index:81;width:min(330px,calc(100vw - 24px));padding:16px 16px 12px;border-radius:20px;background:var(--surface);color:var(--fg);border:1px solid var(--line);box-shadow:0 18px 50px var(--shadow);display:flex;flex-direction:column;gap:8px}
+.tour-card h3{margin:0;font-size:1.02rem;font-weight:600}
+.tour-card p{margin:0;font-size:.95rem;line-height:1.45}
+.tour-nav{display:flex;align-items:center;gap:8px;margin-top:4px}
+.tour-nav .grow{flex:1}
+.tour-nav .count{font-size:.8rem;color:var(--muted)}
+.tour-nav button{height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--line);background:transparent;color:var(--fg);font:inherit;font-size:.92rem;cursor:pointer}
+.tour-nav button.go{background:var(--fg);color:var(--bg);border-color:var(--fg);font-weight:600}
+.tour-nav button.quiet{border-color:transparent;color:var(--muted)}
+.help-card{position:fixed;inset:0;z-index:82;display:flex;align-items:center;justify-content:center;background:rgba(10,12,15,.4);padding:12px}
+.help-in{width:min(460px,100%);max-height:min(560px,calc(100dvh - 24px));overflow:auto;padding:16px;border-radius:22px;background:var(--surface);color:var(--fg);border:1px solid var(--line);box-shadow:0 18px 50px var(--shadow);display:flex;flex-direction:column;gap:10px}
+.help-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.help-top h2{margin:0;font-size:1.15rem;font-weight:600}
+.help-in input{height:46px;padding:0 14px;border-radius:14px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;font-size:1rem;width:100%;box-sizing:border-box}
+.help-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.help-list button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;min-height:56px;padding:10px 14px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--fg);font:inherit;cursor:pointer}
+.help-list button:first-child{border-top:0}
+.help-list button:hover,.help-list button:focus-visible{background:var(--tint)}
+.help-list b{font-weight:600;font-size:.97rem}
+.help-list span{font-size:.85rem;color:var(--muted)}
+.help-none{font-size:.9rem;color:var(--muted);padding:2px 4px}
+.tour-offer{position:fixed;z-index:70;left:50%;transform:translateX(-50%);bottom:96px;width:min(380px,calc(100vw - 24px));padding:12px 14px;border-radius:18px;background:var(--surface);color:var(--fg);border:1px solid var(--line);box-shadow:0 14px 40px var(--shadow);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tour-offer span{flex:1 1 180px;font-size:.93rem}
+.tour-offer button{height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--line);background:transparent;color:var(--fg);font:inherit;font-size:.92rem;cursor:pointer}
+.tour-offer button.go{background:var(--fg);color:var(--bg);border-color:var(--fg);font-weight:600}
 </style>
 
 <main class="wrap">
@@ -653,6 +683,21 @@ body.practice .back-prac{display:none}
   </div>
   <div class="g-kb"><svg id="gKb"></svg></div>
 </section>
+
+<div class="tour-veil" id="tourVeil" hidden><div class="tour-hole" id="tourHole"></div></div>
+<div class="tour-card" id="tourCard" role="dialog" aria-live="polite" aria-label="Walk-through" hidden>
+  <h3 id="tourTitle"></h3><p id="tourText"></p>
+  <div class="tour-nav"><button type="button" class="quiet" id="tourSkip">Close</button><span class="grow"></span><span class="count" id="tourCount"></span><button type="button" id="tourBack">Back</button><button type="button" class="go" id="tourNext">Next</button></div>
+</div>
+<div class="help-card" id="helpCard" hidden>
+  <div class="help-in" role="dialog" aria-label="Help">
+    <div class="help-top"><h2>How can I help?</h2><button type="button" class="pbtn icon soft" id="helpClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <input type="search" id="helpQ" placeholder="Ask, for example: how do I edit fingering?" aria-label="What do you want to do?" autocomplete="off">
+    <div class="help-list" id="helpList"></div>
+    <div class="help-none" id="helpNone" hidden></div>
+  </div>
+</div>
+<div class="tour-offer" id="tourOffer" hidden><span>New here? Take a one-minute look around.</span><button type="button" id="offerNo">Not now</button><button type="button" class="go" id="offerYes">Show me</button></div>
 
 <script>
 /* =====================================================================
@@ -2221,6 +2266,17 @@ function silenceKeyboard(){
   const now = performance.now();
   try { for (const t of [now, now + 250]) { midiOut.send([0xb0 | outCh, 123, 0], t); } } catch (e) {}
 }
+/* the emergency stop: sustain off, all sound off, all notes off, on every channel, twice (the second after anything already queued) */
+function panicKeyboard(){
+  try {
+    if (midiOut) { const now = performance.now(); for (const t of [now, now + 250, now + 800]) for (let ch = 0; ch < 16; ch++) for (const cc of [64, 120, 123]) midiOut.send([0xb0 | ch, cc, 0], t); }
+  } catch (e) {}
+  try { if (playing) stop("Stopped"); } catch (e) {}
+  try { for (const m of [...live.keys()]) stopLive(m); } catch (e) {}
+  try { rec({ e: "panic" }); } catch (e) {}
+  setStatus("Silenced the keyboard and the player");
+}
+addEventListener("pagehide", () => { try { if (midiOut && S.out === "kb") { for (let ch = 0; ch < 16; ch++) midiOut.send([0xb0 | ch, 123, 0]); } } catch (e) {} });
 function syncOutUI(){ $("outSeg").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.o === S.out))); }
 $("outSeg").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
@@ -3638,7 +3694,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261028d";
+const BUILD = "261028e";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -5236,6 +5292,239 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
     $("ptTime").title = `Last note ${a < 6 ? "on time" : a + " ms " + (ms < 0 ? "early" : "late")}. The shaded band is ±${DT.tol} ms.`;
   }
   keyDown = (o => function(m, vel, ts){ o.apply(this, arguments); try { if (playing && !G.on && !FE.on) measure(m, ts || performance.now()); } catch (e) {} })(keyDown);
+})();
+
+/* =====================================================================
+   Help and walk-throughs
+   A walk-through is a short list of steps in plain data: which control to point at,
+   what to say, and (when a menu has to be open to show it) how to open it. The
+   engine dims the screen, lights one spot, and puts a card beside it. A step whose
+   control isn't on screen at the moment (a panel turned off, no keyboard connected)
+   is skipped. "How do I…?" matches the words typed against the topics below, and
+   a question with no match is written to the session record, so the next
+   walk-through to write is the one people ask for.
+   ===================================================================== */
+const Tour = (function(){
+  const sheetOpen = () => { $("psheet").hidden = false; };
+  const sheetShut = () => { $("psheet").hidden = true; };
+  const popOpen = (btn, pop) => () => { sheetShut(); if ($(pop).hidden) $(btn).click(); };
+  const S1 = (sel, title, text, more) => Object.assign({ sel, title, text }, more || {});
+  const TOURS = {
+    start: { title: "A quick look around", blurb: "What each part of the screen is for", needPiece: true,
+      words: "tour start begin overview learn around what is this screen parts introduction getting started new",
+      steps: [
+        S1("#ptLib", "Your piece", "This is the piece you're playing. Tap its name to go back to the library and choose another."),
+        S1("#stripBox", "The whole piece", "Every bar of the piece in one strip. Blue is the right hand, red the left. Drag across it to choose a part to practise."),
+        S1("#zoomBox", "A closer look", "The same music magnified, a few bars at a time."),
+        S1("#staffBox", "The music as written", "The score. The highlighted spot is where you are."),
+        S1("#kbBox", "Keyboard and falling notes", "Notes fall toward the key to play. The number on a note is the finger: 1 is the thumb, 5 the little finger."),
+        S1("#pdTrans", "Play", "Play starts and stops the piece. Start, Back and Step move you through it one note at a time, which is handy with new music."),
+        S1("#tBtn", "Tempo", "Slow the piece right down until it feels easy, then bring it up. Tap here for the slider and presets."),
+        S1(["#hL", "#hR"], "Hands", "Tap Left or Right to turn that hand to soft, then off, then back on. Practise one hand while the other plays for you."),
+        S1("#wBtn", "Wait for me", "With a keyboard connected, the piece waits until you play the lit notes, then moves on."),
+        S1("#loopBtn", "Loop", "Repeats the chosen part again and again."),
+        S1("#secBtn", "Section", "Choose the part to practise: the whole piece, or any stretch from one note to another."),
+        S1("#setBtn", "Settings and help", "Show or hide panels, connect your keyboard, turn on a count-in or a click. Help is here too, with a walk-through for each task.")
+      ] },
+    section: { title: "Practise just one part", blurb: "Choose a stretch, loop it, save it", needPiece: true,
+      words: "section part bars loop repeat chunk select choose practise practice phrase passage start end save slice measure",
+      steps: [
+        S1("#stripBox", "Drag across the bars", "Drag across the strip to mark a stretch. The brackets at its ends can be dragged to change it."),
+        S1("#zoomBox", "Or tap a note", "You can also tap a note on the close-up, the notation, or in the falling notes, then use Set start and Set end."),
+        S1("#sPop", "Set start and Set end", "Tap a note, press Set start. Tap another, press Set end. A section can begin and end on any note, not only on bar lines.", { open: popOpen("secBtn", "sPop") }),
+        S1("#secSave", "Save it", "Save keeps a section you like. Saved sections come back next time as chips under the bars.", { open: popOpen("secBtn", "sPop") }),
+        S1("#loopBtn", "Loop it", "With Loop on, the section repeats until you stop it.")
+      ] },
+    hands: { title: "Practise one hand", blurb: "Turn a hand down or off", needPiece: true,
+      words: "hand hands left right one hand separately mute quiet soft off silent",
+      steps: [
+        S1(["#hL", "#hR"], "Left and Right", "Each tap moves a hand through on, soft and off. Soft is quiet, off is silent. The dot shows which."),
+        S1("#tBtn", "Go slowly first", "One hand at a time, slowly. Tempo is here.")
+      ] },
+    fingering: { title: "Edit fingering", blurb: "Change a finger and save it", needPiece: true,
+      words: "fingering finger fingers edit change fix wrong number thumb suggest suggested printed save",
+      steps: [
+        S1("#fingBtn", "Start in Settings", "Edit fingering is under This piece. Tap it to begin.", { open: sheetOpen }),
+        S1("#fingRow", "The fingering bar", "Now tap a note on the staff or in the falling notes. You can also play it on your keyboard.", { open: () => { sheetShut(); if (!FE.on) feStart(); }, fe: true }),
+        S1("#fingSeg", "Choose the finger", "Press 1 to 5 (1 is the thumb). It moves on to the next note in that hand. Fingers Pianissimo suggested show fainter and slanted; printed ones and yours are solid.", { open: () => { sheetShut(); if (!FE.on) feStart(); }, fe: true }),
+        S1("#fingRow .fing-help", "Quicker", "Arrow keys move along the hand, up and down move through a chord, and Delete takes your change back.", { open: () => { sheetShut(); if (!FE.on) feStart(); }, fe: true }),
+        S1("#fingSave", "Save", "Save fingering writes your changes into the piece. Done closes the editor.", { open: () => { sheetShut(); if (!FE.on) feStart(); }, fe: true })
+      ] },
+    wait: { title: "Wait for me", blurb: "The piece waits until you play the notes", needPiece: true,
+      words: "wait for me waits stop pause until play along midi keyboard lit notes learn new piece step",
+      steps: [
+        S1("#midiBtn", "First, a keyboard", "Connect your keyboard (Chrome or Chromium on a computer). Once it's connected, Wait appears in the bottom bar.", { open: sheetOpen }),
+        S1("#wBtn", "Choose a hand", "Pick Right, Left or Both. The notes you need light up, and the piece waits until you play them.", { open: popOpen("wBtn", "wPop") }),
+        S1("#wPop", "The other hand plays for you", "With one hand chosen, the other hand is played for you, in time. Wait works while Play is off.", { open: popOpen("wBtn", "wPop") })
+      ] },
+    keyboard: { title: "Connect my keyboard", blurb: "A MIDI keyboard, and where the sound comes from", needPiece: true,
+      words: "keyboard midi connect usb piano roland sound laptop speaker audio output not working no sound",
+      steps: [
+        S1("#psMidi", "Connect keyboard", "Plug the keyboard in by USB first, then tap Connect keyboard and allow it when Chrome asks.", { open: sheetOpen }),
+        S1("#psOut", "Where the sound comes from", "Laptop plays through this computer. Keyboard sends the notes back to the piano, so you hear the piano's own sound.", { open: sheetOpen })
+      ] },
+    library: { title: "Add music", blurb: "Your music folder and starter pieces", needPiece: false, view: "library",
+      words: "add music piece pieces library folder file files import musicxml midi starter download new song",
+      steps: [
+        S1("#libActions", "Adding pieces", "Choose your music folder to keep your pieces, practice records and sections there. Add files takes MusicXML or MIDI files. Add starter pieces gives you a few to try.", { open: () => { if (document.body.classList.contains("practice")) $("ptLib").click(); }, scroll: true }),
+        S1("#libList", "Your library", "Tap a piece to open it and start practising. Remove takes it off the list.", { scroll: true })
+      ] },
+    players: { title: "Who's playing", blurb: "Names, minutes and practice records", needPiece: false,
+      words: "player players name who playing minutes time record history profile family sister",
+      steps: [
+        S1("#plChip", "Who's playing?", "Add a name for each person who plays on this computer. Their practice time and session records are kept under it."),
+        S1("#playerPanel", "Who's playing", "Pick a name here, or add a new one. Practice time and session records are kept under each name.", { scroll: true })
+      ] }
+  };
+  let cur = null, idx = 0, dir = 1, timer = 0, startedFE = false, onDoc = null, shownAny = false;
+  const card = () => $("tourCard"), hole = () => $("tourHole"), veil = () => $("tourVeil");
+  const vis = el => { if (!el) return false; const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 2 && r.height > 2 && cs.visibility !== "hidden" && cs.display !== "none"; };
+  function rectOf(sel){
+    const list = (Array.isArray(sel) ? sel : [sel]).map(s => document.querySelector(s)).filter(vis);
+    if (!list.length) return null;
+    const rs = list.map(e => e.getBoundingClientRect());
+    const l = Math.min(...rs.map(r => r.left)), t = Math.min(...rs.map(r => r.top)), r = Math.max(...rs.map(r => r.right)), b = Math.max(...rs.map(r => r.bottom));
+    return { l, t, r, b, el: list[0] };
+  }
+  function place(rc){
+    const c = card(), h = hole(), pad = 8, vw = innerWidth, vh = innerHeight;
+    if (!rc) { h.className = "tour-hole none"; h.style.left = h.style.top = "50%"; c.style.left = Math.max(12, (vw - c.offsetWidth) / 2) + "px"; c.style.top = Math.max(12, (vh - c.offsetHeight) / 2) + "px"; return; }
+    h.className = "tour-hole";
+    h.style.left = rc.l - pad + "px"; h.style.top = rc.t - pad + "px"; h.style.width = rc.r - rc.l + 2 * pad + "px"; h.style.height = rc.b - rc.t + 2 * pad + "px";
+    const cw = c.offsetWidth, ch = c.offsetHeight, below = vh - rc.b - pad, above = rc.t - pad;
+    let top;
+    if (below >= ch + 12) top = rc.b + pad + 10;
+    else if (above >= ch + 12) top = rc.t - pad - 10 - ch;
+    else top = Math.max(12, Math.min(vh - ch - 12, rc.t + 12));       // no room above or below: sit over the lit area's top
+    let left = (rc.l + rc.r) / 2 - cw / 2;
+    left = Math.max(12, Math.min(vw - cw - 12, left));
+    top = Math.max(12, Math.min(vh - ch - 12, top));
+    c.style.left = left + "px"; c.style.top = top + "px";
+  }
+  function find(step){
+    if (step.open) { try { step.open(); } catch (e) {} }
+    { const el = document.querySelector(Array.isArray(step.sel) ? step.sel[0] : step.sel);
+      if (el && el.scrollIntoView && (step.scroll || el.closest("#psheet"))) { const r = el.getBoundingClientRect(); if (r.top < 8 || r.bottom > innerHeight - 8) el.scrollIntoView({ block: "center", behavior: "auto" }); } }
+    return rectOf(step.sel);
+  }
+  function show(i, d){
+    if (!cur) return;
+    dir = d || 1;
+    const steps = cur.steps;
+    if (i === 0 && dir === 1) shownAny = false;
+    while (i >= 0 && i < steps.length) {
+      const rc = find(steps[i]);
+      if (rc || steps[i].noTarget) { idx = i; shownAny = true; render(steps[i], rc); return; }
+      i += dir;                                         // nothing to point at here: skip the step
+    }
+    if (i < 0) { idx = 0; show(0, 1); return; }
+    if (!shownAny) { end(false); showOnly("Not on screen right now", "That part isn't visible in this view. Try a larger window, or turn a phone upright (the library only shows that way)."); return; }
+    end(true);
+  }
+  function render(st, rc){
+    veil().hidden = false; card().hidden = false;
+    $("tourTitle").textContent = st.title; $("tourText").textContent = st.text;
+    const n = cur.steps.length;
+    $("tourCount").textContent = (idx + 1) + " of " + n;
+    $("tourBack").hidden = idx === 0;
+    $("tourNext").textContent = idx === n - 1 ? "Done" : "Next";
+    place(rc);
+    clearInterval(timer);
+    timer = setInterval(() => { if (!cur) return; const s = cur.steps[idx]; const r2 = find(s); if (r2) place(r2); }, 600);
+  }
+  function end(done){
+    clearInterval(timer); timer = 0;
+    veil().hidden = true; card().hidden = true;
+    if (cur) {
+      sheetShut(); document.body.click();
+      if (startedFE && FE.on && !FE.dirty) feDone();
+      try { rec({ e: "tour", id: cur.id, at: idx + 1, of: cur.steps.length, done: !!done }); } catch (e) {}
+    }
+    startedFE = false; cur = null;
+    if (onDoc) { document.removeEventListener("keydown", onDoc, true); onDoc = null; }
+  }
+  function start(id){
+    const t = TOURS[id]; if (!t) return false;
+    closeHelp(); sheetShut(); document.body.click();
+    if (t.needPiece && !P) { showOnly("Open a piece first", "Choose a piece from the library (tap its name), then ask again. Try “Add music” if the library is empty."); return true; }
+    if (P && t.view !== "library" && !document.body.classList.contains("practice")) $("land").click();
+    cur = { id, title: t.title, steps: t.steps.filter(s => !s.fe || true) }; idx = 0; startedFE = false;
+    if (t.steps.some(s => s.fe)) startedFE = !FE.on;
+    onDoc = e => { if (!cur) return; if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); end(false); } else if (e.key === "ArrowRight" || e.key === "Enter") { if (document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return; e.preventDefault(); e.stopPropagation(); next(); } else if (e.key === "ArrowLeft") { e.preventDefault(); e.stopPropagation(); back(); } };
+    document.addEventListener("keydown", onDoc, true);
+    show(0, 1);
+    return true;
+  }
+  function next(){ if (!cur) return; if (idx >= cur.steps.length - 1) { end(true); return; } show(idx + 1, 1); }
+  function back(){ if (!cur) return; show(idx - 1, -1); }
+  function showOnly(title, text){
+    cur = { id: "note", title, steps: [{ sel: "body", title, text, noTarget: true }] }; idx = 0;
+    $("tourTitle").textContent = title; $("tourText").textContent = text; $("tourCount").textContent = ""; $("tourBack").hidden = true; $("tourNext").textContent = "OK";
+    veil().hidden = false; card().hidden = false; place(null);
+  }
+  /* ---- finding a walk-through from words ---- */
+  const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter(w => w.length > 1);
+  const STOP = new Set(("how do i the a an to my me can you what where is it of for on in and or with show about want need please help").split(" "));
+  function rank(q){
+    const qs = norm(q).filter(w => !STOP.has(w));
+    if (!qs.length) return Object.keys(TOURS);
+    const scored = Object.keys(TOURS).map(id => {
+      const t = TOURS[id], hay = new Set(norm(t.title + " " + t.blurb + " " + t.words));
+      let s = 0; for (const w of qs) { if (hay.has(w)) s += 2; else if ([...hay].some(h => h.startsWith(w) || (w.length > 3 && w.startsWith(h) && h.length > 3))) s += 1; }
+      return { id, s };
+    }).filter(x => x.s > 0).sort((a, b) => b.s - a.s);
+    return scored.map(x => x.id);
+  }
+  function renderList(q){
+    const ids = rank(q), L = $("helpList"); L.innerHTML = "";
+    $("helpNone").hidden = !(q.trim() && !ids.length);
+    if (q.trim() && !ids.length) $("helpNone").textContent = "I don't have a walk-through for that yet. Your question has been noted, so it can be written next. These are the ones so far:";
+    (ids.length ? ids : Object.keys(TOURS)).forEach(id => {
+      const t = TOURS[id], b = document.createElement("button"); b.type = "button";
+      b.innerHTML = `<b></b><span></span>`; b.firstChild.textContent = t.title; b.lastChild.textContent = t.blurb;
+      b.addEventListener("click", () => start(id)); L.appendChild(b);
+    });
+  }
+  function openHelp(){ sheetShut(); $("helpCard").hidden = false; $("helpQ").value = ""; renderList(""); setTimeout(() => $("helpQ").focus(), 50); }
+  function closeHelp(){ $("helpCard").hidden = true; }
+  let askT = 0;
+  $("helpQ").addEventListener("input", e => {
+    renderList(e.target.value);
+    clearTimeout(askT); const q = e.target.value.trim();
+    if (q.length > 3 && !rank(q).length) askT = setTimeout(() => { try { rec({ e: "help", q: q.slice(0, 200) }); } catch (er) {} }, 1200);
+  });
+  $("helpQ").addEventListener("keydown", e => { if (e.key === "Enter") { const ids = rank($("helpQ").value); if (ids.length) start(ids[0]); } if (e.key === "Escape") closeHelp(); });
+  $("helpClose").addEventListener("click", closeHelp);
+  $("helpCard").addEventListener("click", e => { if (e.target === $("helpCard")) closeHelp(); });
+  $("tourNext").addEventListener("click", e => { e.stopPropagation(); if (cur && cur.id === "note") { end(false); return; } next(); });
+  $("tourBack").addEventListener("click", e => { e.stopPropagation(); back(); });
+  $("tourSkip").addEventListener("click", e => { e.stopPropagation(); end(false); });
+  $("tourCard").addEventListener("click", e => e.stopPropagation());
+  addEventListener("resize", () => { if (cur) { const rc = rectOf(cur.steps[idx].sel); place(rc); } });
+  /* ---- a way in from Settings, and a first-visit offer ---- */
+  (function addRows(){
+    const grp = document.createElement("div"); grp.className = "ps-grp";
+    grp.innerHTML = `<div class="ps-lab">Help</div><div class="ps-box"><div class="ps-row"><span>Walk-throughs and answers</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="chip" id="helpTour" type="button">Show me around</button><button class="chip" id="helpAsk" type="button">How do I…?</button></span></div></div>`;
+    const card = document.querySelector("#psheet .ps-card"), first = card && card.querySelector(".ps-grp");
+    if (card && first) card.insertBefore(grp, first);
+    const info = $("psInfo");
+    if (info && info.parentElement) { const row = document.createElement("div"); row.className = "ps-row"; row.innerHTML = `<span>If the keyboard sticks</span><button class="chip" id="panicBtn" type="button">Silence it</button>`; info.parentElement.appendChild(row); $("panicBtn").addEventListener("click", panicKeyboard); }
+    $("helpTour").addEventListener("click", () => start("start"));
+    $("helpAsk").addEventListener("click", openHelp);
+  })();
+  const KEY = "pianissimo-toured";
+  let offered = false;
+  function offer(){
+    if (offered) return; let done = false; try { done = localStorage.getItem(KEY) === "1"; } catch (e) {}
+    if (done) { offered = true; return; }
+    if (!P || !document.body.classList.contains("practice") || cur || !$("psheet").hidden) return;
+    offered = true; $("tourOffer").hidden = false;
+  }
+  const seen = () => { try { localStorage.setItem(KEY, "1"); } catch (e) {} $("tourOffer").hidden = true; };
+  $("offerNo").addEventListener("click", seen);
+  $("offerYes").addEventListener("click", () => { seen(); start("start"); });
+  setInterval(offer, 4000);
+  return { start, end, TOURS, openHelp, rank, find, rectOf, check(){ const bad = []; for (const id in TOURS) TOURS[id].steps.forEach((s, i) => { }); return bad; } };
 })();
 </script>
 
