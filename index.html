@@ -471,6 +471,13 @@ body.practice .back-prac{display:none}
 .tour-offer span{flex:1 1 180px;font-size:.93rem}
 .tour-offer button{height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--line);background:transparent;color:var(--fg);font:inherit;font-size:.92rem;cursor:pointer}
 .tour-offer button.go{background:var(--fg);color:var(--bg);border-color:var(--fg);font-weight:600}
+.fing-pop{position:fixed;z-index:40;display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:min(94vw,34rem);padding:8px 10px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.22)}
+.fing-pop[hidden]{display:none}
+.fp-note{font-size:.85rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fp-note i{color:var(--muted)}
+.fing-pop .seg button{min-width:2.6em;font:700 1.05rem var(--font-num);padding:8px 10px}
+@media (pointer:coarse){.fing-pop .seg button{min-width:3em;padding:11px 12px}}
+body.live-fing .fing-row{display:none!important}
 </style>
 
 <main class="wrap">
@@ -595,6 +602,7 @@ body.practice .back-prac{display:none}
       <button class="chip" id="secSave" type="button">Save section</button>
       <button class="chip" id="secDrop" type="button" hidden>Forget this one</button>
       <button class="chip" id="fingBtn" type="button" aria-pressed="false">Edit fingering</button>
+      <button class="chip" id="liveFing" type="button" aria-pressed="false">Live fingering edit</button>
       <button class="chip" id="explainBtn" type="button">Explain</button>
       <span class="seg" id="mode" aria-label="Play mode"><button type="button" data-loop="1">Loop</button><button type="button" data-loop="0">Once</button></span>
     </div>
@@ -690,6 +698,13 @@ body.practice .back-prac{display:none}
   <div class="g-kb"><svg id="gKb"></svg></div>
 </section>
 
+<div id="fingPop" class="fing-pop" role="group" aria-label="Finger for this note" hidden>
+  <span class="fp-note" id="fpNote"></span>
+  <span class="seg" id="fpSeg"><button type="button" data-f="1">1</button><button type="button" data-f="2">2</button><button type="button" data-f="3">3</button><button type="button" data-f="4">4</button><button type="button" data-f="5">5</button></span>
+  <button class="chip" id="fpClear" type="button" hidden>Undo</button>
+  <button class="chip" id="fpSave" type="button" disabled>Save</button>
+  <button class="chip" id="fpDone" type="button" aria-label="Stop editing">&#10005;</button>
+</div>
 <div class="tour-veil" id="tourVeil" hidden><div class="tour-hole" id="tourHole"></div></div>
 <div class="tour-card" id="tourCard" role="dialog" aria-live="polite" aria-label="Walk-through" hidden>
   <h3 id="tourTitle"></h3><p id="tourText"></p>
@@ -3513,6 +3528,7 @@ addEventListener("resize", () => {
     const at = a => g.target && g.target.getAttribute ? g.target.getAttribute(a) : null;
     if (!g.moved) {
       const k = at("data-k"), m = at("data-m");
+      if (LIVE && !FE.on && m && k) { withAudio(async () => { await feStart(); const c = ON[+k].notes.find(n => n.midi === +m); if (c) feSelect(srcOf(c), true); }); return; }
       if (FE.on && m) { withAudio(() => { if (k) { const c = ON[+k].notes.find(n => n.midi === +m); if (c) feSelect(srcOf(c), true); } else feKey(+m); }); return; }
       if (k !== null && k !== undefined && k !== "") withAudio(() => selectStep(+k));
       return;
@@ -3713,7 +3729,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261028i";
+const BUILD = "261028j";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -3940,7 +3956,8 @@ async function persistPiece(p, ask){
 }
 
 /* ---------- the fingering editor ---------- */
-const FE = { on: false, sel: null, hand: "r", doc: null, els: null, piece: null, ready: null, dirty: 0, ops: [], stale: false, staffT: 0 };
+let LIVE = false; try { LIVE = localStorage.getItem("pianissimo-live-fing") === "1"; } catch (e) {}
+const FE = { live: false, snap: null, on: false, sel: null, hand: "r", doc: null, els: null, piece: null, ready: null, dirty: 0, ops: [], stale: false, staffT: 0 };
 const srcOf = c => { if (!P.srcKey) P.srcKey = new Map(P.src.notes.map(n => [fKey(n), n])); return P.srcKey.get(fKey(c)) || null; };
 const copiesOf = n => { const k = fKey(n); return P.notes.filter(c => fKey(c) === k); };
 const handOrder = hand => P.src.notes.filter(n => n.hand === hand).sort((a, b) => a.st - b.st || a.midi - b.midi);
@@ -3984,7 +4001,9 @@ function replan(hand){
   return ns.filter(m => old.has(m) && m.finger !== old.get(m));
 }
 function applyEdit(n, f, quiet){
-  if (!n || !setFinger(n, f)) return 0;
+  if (!n) return 0;
+  if (!FE.snap && !quiet && FE.piece === P) FE.snap = { p: P, xml: P.xml, st: P.src.notes.map(m => [m.finger, m.fsrc, m.alt, m.auto]) };
+  if (!setFinger(n, f)) return 0;
   const moved = replan(n.hand).filter(m => m !== n), all = [n, ...moved];
   if (FE.doc) for (const m of all) { const el = FE.els.get(fKey(m)); if (el) writeFinger(FE.doc, el, m.finger, m.fsrc); }
   for (const m of all) for (const c of copiesOf(m)) { c.finger = m.finger; c.fsrc = m.fsrc; c.alt = m.alt; }
@@ -4010,7 +4029,7 @@ async function saveFingering(p, ask){
   let where = "error";
   try { where = await persistPiece(p, ask); } catch (e) {}
   if (where !== "error" && where !== "none") { try { localStorage.removeItem("pianissimo-fing-" + p.id); } catch (e) {} }
-  if (FE.piece === p && where !== "error") { FE.dirty = Math.max(0, FE.dirty - n); if (!FE.dirty) FE.ops = []; }
+  if (FE.piece === p && where !== "error") { FE.dirty = Math.max(0, FE.dirty - n); if (!FE.dirty) { FE.ops = []; FE.snap = null; } }
   if (P === p) updateFingUI();
   setStatus(where === "file" ? `Fingering saved into ${p.id.slice(2).split("/").pop()}`
     : where === "library" ? "Fingering saved with the piece"
@@ -4020,9 +4039,27 @@ async function saveFingering(p, ask){
     : "Couldn't save the fingering");
 }
 /* closing a piece saves its fingering */
+/* live editing asks before keeping or dropping what was changed */
+function feRevert(p, quiet){
+  const sn = FE.snap; if (!sn || sn.p !== p) return;
+  p.src.notes.forEach((m, i) => { const o = sn.st[i]; m.finger = o[0]; m.fsrc = o[1]; m.alt = o[2]; m.auto = o[3]; });
+  for (const c of p.notes) { const m = p.srcKey ? p.srcKey.get(fKey(c)) : null; if (m) { c.finger = m.finger; c.fsrc = m.fsrc; c.alt = m.alt; } }
+  p.xml = sn.xml;
+  FE.snap = null; FE.dirty = 0; FE.ops = []; FE.stale = false; FE.doc = null; FE.els = null; FE.ready = null;
+  try { localStorage.removeItem("pianissimo-fing-" + p.id); } catch (e) {}
+  if (P === p && !quiet) { if (stepIdx >= 0) { clearMarks(); mark(ON[stepIdx], Infinity); } renderDrops(); updateFingUI(); loadStaff(true); }
+  rec({ e: "fing-discard", id: p.id });
+}
+function feAsk(p, quiet){
+  if (!p || FE.piece !== p || !FE.dirty) return;
+  const n = FE.dirty;
+  const keep = confirm(`Save your ${n} fingering change${n > 1 ? "s" : ""} to \u201c${p.title}\u201d?\n\nOK saves them. Cancel throws them away.`);
+  if (keep) saveFingering(p, true); else feRevert(p, quiet);
+}
 function feLeave(){
   const p = FE.piece;
-  if (p && FE.dirty) saveFingering(p, true);
+  if (p && FE.dirty) { if (FE.live || LIVE) feAsk(p, true); else saveFingering(p, true); }
+  FE.snap = null; FE.live = false;
   FE.piece = null; FE.ready = null; FE.doc = null; FE.els = null; FE.sel = null; FE.dirty = 0; FE.ops = []; FE.stale = false; clearTimeout(FE.staffT);
 }
 /* changes made but not saved when the page closed come back the next time the piece opens */
@@ -4080,7 +4117,7 @@ function feChord(dir){
 function feType(f){ if (!FE.sel) return; applyEdit(FE.sel, f); feMove(1); }
 async function feStart(){
   if (!P) return;
-  FE.on = true; updateFingUI();
+  FE.on = true; FE.live = LIVE; updateFingUI();
   await feDoc();
   if (!FE.sel || !P.src.notes.includes(FE.sel)) {
     const k = stepIdx >= 0 ? stepIdx : S.a;
@@ -4092,13 +4129,14 @@ async function feStart(){
 }
 function feDone(){
   FE.on = false;
-  if (FE.piece && FE.dirty) saveFingering(FE.piece, true);
+  if (FE.piece && FE.dirty) { if (FE.live) feAsk(FE.piece); else saveFingering(FE.piece, true); }
   updateFingUI(); renderDrops(); if (stepIdx >= 0) { clearMarks(); mark(ON[stepIdx], Infinity); }
 }
 function updateFingUI(){
   document.body.classList.toggle("fedit", FE.on);
   $("fingBtn").setAttribute("aria-pressed", String(FE.on));
   $("fingRow").hidden = !FE.on;
+  fingPopUpdate();
   document.querySelectorAll("#kb .fsel").forEach(e => e.classList.remove("fsel"));
   if (!FE.on || !P) return;
   const n = FE.sel;
@@ -4111,6 +4149,50 @@ function updateFingUI(){
   $("fingSave").disabled = !FE.dirty;
   $("fingSave").textContent = FE.dirty ? `Save fingering (${FE.dirty} change${FE.dirty > 1 ? "s" : ""})` : "Save fingering";
 }
+/* live editing: a small picker that sits over the falling notes */
+function placeFingPop(){
+  const pop = $("fingPop"); if (!pop || pop.hidden) return;
+  const kb = $("kb").getBoundingClientRect(), r = document.querySelector("#kb rect.drop.fsel");
+  const pr = pop.getBoundingClientRect();
+  let cx = kb.left + kb.width / 2;
+  if (r) { const b = r.getBoundingClientRect(); if (b.width) cx = b.left + b.width / 2; }
+  const left = Math.max(8, Math.min(innerWidth - pr.width - 8, cx - pr.width / 2));
+  const roomy = kb.height > 300, top = Math.max(8, Math.min(innerHeight - pr.height - 8, roomy ? kb.top + 8 : kb.top - pr.height - 6));   // over the falling notes only when there's plenty of them
+  pop.style.left = left + "px"; pop.style.top = top + "px";
+}
+function fingPopUpdate(){
+  const pop = $("fingPop"); if (!pop) return;
+  const show = !!(FE.on && FE.live && P && FE.sel);
+  pop.hidden = !show;
+  if (!show) return;
+  const n = FE.sel;
+  const what = !n.finger ? "no finger yet" : n.fsrc === "sug" ? "suggested" : n.fsrc === "mine" ? "yours" : "printed";
+  $("fpNote").innerHTML = `<b>${n.hand === "r" ? "R" : "L"} ${esc(n.name)}</b> bar ${esc(srcBarLabel(n.st))} <i>${esc(what)}</i>`;
+  $("fpSeg").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.f === n.finger)));
+  $("fpClear").hidden = n.fsrc !== "mine";
+  $("fpSave").disabled = !FE.dirty;
+  $("fpSave").textContent = FE.dirty ? `Save (${FE.dirty})` : "Save";
+  placeFingPop();
+}
+function feSuspend(){ if (!FE.on || !FE.live) return; FE.on = false; updateFingUI(); renderDrops(); if (stepIdx >= 0) { clearMarks(); mark(ON[stepIdx], Infinity); } }
+function liveSet(on){
+  if (!on && FE.piece && FE.dirty) feAsk(FE.piece);
+  LIVE = on; try { localStorage.setItem("pianissimo-live-fing", on ? "1" : "0"); } catch (e) {}
+  document.body.classList.toggle("live-fing", on);
+  $("liveFing").setAttribute("aria-pressed", String(on));
+  if (!on && FE.on) { FE.live = false; FE.on = false; updateFingUI(); renderDrops(); }
+  if (on) setStatus("Live fingering edit is on: tap a falling note, then press 1 to 5");
+  rec({ e: "livefing", on });
+}
+$("liveFing").addEventListener("click", () => liveSet(!LIVE));
+$("fpSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) feType(+b.dataset.f); });
+$("fpClear").addEventListener("click", () => { if (FE.sel) applyEdit(FE.sel, 0); });
+$("fpSave").addEventListener("click", () => { if (FE.piece) saveFingering(FE.piece, true); });
+$("fpDone").addEventListener("click", () => feDone());
+addEventListener("resize", () => placeFingPop());
+if (LIVE) { document.body.classList.add("live-fing"); $("liveFing").setAttribute("aria-pressed", "true"); }
+start = (o => function(){ if (FE.on && FE.live) feSuspend(); return o.apply(this, arguments); })(start);
+enterWait = (o => function(){ if (FE.on && FE.live) feSuspend(); return o.apply(this, arguments); })(enterWait);
 $("fingBtn").addEventListener("click", () => { if (FE.on) feDone(); else withAudio(() => feStart()); });
 $("fingDone").addEventListener("click", () => feDone());
 $("fingSave").addEventListener("click", () => { if (FE.piece) saveFingering(FE.piece, true); });
@@ -5198,7 +5280,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
   $("panels").querySelectorAll("button").forEach(b => { b.textContent = pn[b.dataset.p] || b.textContent; });
   mv($("panels"), $("psShow"));
   mv($("midiBtn"), $("psMidi")); mv($("outSeg").parentElement, $("psOut")); mv($("waitInfo"), $("psInfo")); mv($("midiNote"), $("psInfo"));
-  mv($("fingBtn"), $("psPiece")); mv($("explainBtn"), $("psPiece")); mv($("land"), $("psPiece"));
+  mv($("fingBtn"), $("psPiece")); mv($("liveFing"), $("psPiece")); mv($("explainBtn"), $("psPiece")); mv($("land"), $("psPiece"));
   mv($("verLine"), $("psVer"));
 
   /* menus: one open at a time; a tap elsewhere or Escape closes it */
@@ -5225,6 +5307,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
 
   /* title: back to the library */
   $("ptLib").addEventListener("click", () => {
+    if (LIVE && FE.piece && FE.dirty) feAsk(FE.piece);
     const cl = document.body.classList;
     if (cl.contains("practice") && cl.contains("manual")) $("exit").click();
     else if (!cl.contains("practice")) { const lib = q('section[aria-label="Library"]'); if (lib) lib.scrollIntoView({ behavior: "smooth" }); }
