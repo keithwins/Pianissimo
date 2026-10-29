@@ -325,6 +325,8 @@ body.practice .not-practice{display:none}
 body.manual .only-manual,body.rot .only-rot{display:inline-flex}
 body.practice .kb{flex:1 1 0;min-height:64px;display:flex;touch-action:none}
 body.practice.hide-drops .kb{flex:0 0 auto}
+body.hide-kb.hide-drops .kb{display:none}
+body:not(.practice).hide-kb .kb{display:none}
 body.practice .kb svg{width:100%;height:100%;max-width:none}
 body.practice.rot .dock{inset:auto;top:0;left:0;width:100vh;width:100dvh;height:100vw;
   transform-origin:0 0;transform:translateX(100vw) rotate(90deg)}
@@ -643,7 +645,7 @@ body.live-fing .fing-row{display:none!important}
       <span class="hand"><span class="sw l"></span>L
         <span class="seg" data-hand="l"><button type="button" data-v="1">On</button><button type="button" data-v="0.3">Soft</button><button type="button" data-v="0">Off</button></span></span>
       <span class="hand"><span class="label">Show</span>
-        <span class="seg" id="panels" aria-label="Panels to show"><button type="button" data-p="strip">Bars</button><button type="button" data-p="zoom">Zoom</button><button type="button" data-p="staff">Staff</button><button type="button" data-p="drops">Drop notes</button><button type="button" data-p="harm">Harmony</button></span></span>
+        <span class="seg" id="panels" aria-label="Panels to show"><button type="button" data-p="strip">Bars</button><button type="button" data-p="zoom">Zoom</button><button type="button" data-p="staff">Staff</button><button type="button" data-p="drops">Drop notes</button><button type="button" data-p="kb">Keyboard</button><button type="button" data-p="harm">Harmony</button></span></span>
     </div>
    </div>
     <div class="strip" id="stripBox" aria-label="The whole piece, bar by bar"><svg id="strip" preserveAspectRatio="none"></svg></div>
@@ -1783,7 +1785,7 @@ function layoutDrops(){
     if (w > 0 && h > 0) {
       const units = h / (w / KW);
       wantKH = Math.max(50, Math.min(80, Math.round(units * .38)));
-      DROP_H = Math.max(40, Math.min(420, Math.round(units - wantKH - 2)));
+      DROP_H = Math.max(40, Math.min(420, Math.round(units - (L.kb ? wantKH : 0) - 2)));
     }
   }
   if (wantKH !== KH) { KH = wantKH; buildKeyboard(); }
@@ -1791,8 +1793,9 @@ function layoutDrops(){
   laneEls.forEach(l => l.setAttribute("y2", DROP_H));
   hitLine.setAttribute("y1", DROP_H); hitLine.setAttribute("y2", DROP_H);
   gKeys.setAttribute("transform", `translate(0 ${DROP_H})`);
+  gKeys.style.display = (practice && !L.kb) ? "none" : "";
   const svg = $("kb");
-  svg.setAttribute("viewBox", practice ? `0 0 ${KW} ${DROP_H + KH + 2}` : `0 ${DROP_H} ${KW} ${KH + 2}`);
+  svg.setAttribute("viewBox", practice ? `0 0 ${KW} ${DROP_H + (L.kb ? KH : 0) + 2}` : `0 ${DROP_H} ${KW} ${KH + 2}`);
   svg.setAttribute("preserveAspectRatio", practice ? "xMidYMax meet" : "xMidYMid meet");
   renderDrops();
 }
@@ -3571,12 +3574,12 @@ if (matchMedia("(pointer: fine)").matches && "webkitdirectory" in document.creat
    with a cursor on the step you're at.
    ===================================================================== */
 const bigScreen = Math.min(screen.width, screen.height) >= 600;
-const L = { strip: true, zoom: true, staff: bigScreen, drops: true, staffH: 220, practice: bigScreen, tools: bigScreen, harm: false, hcol: false };
+const L = { strip: true, zoom: true, staff: bigScreen, drops: true, kb: true, staffH: 220, practice: bigScreen, tools: bigScreen, harm: false, hcol: false };
 try { Object.assign(L, JSON.parse(localStorage.getItem("pianissimo-layout") || "{}")); } catch (e) {}
 function saveLayout(){ try { localStorage.setItem("pianissimo-layout", JSON.stringify(L)); } catch (e) {} }
 function applyPanels(){
   const cl = document.body.classList;
-  cl.toggle("hide-strip", !L.strip); cl.toggle("no-zoom", !L.zoom); cl.toggle("show-harm", !!L.harm); cl.toggle("hide-staff", !L.staff); cl.toggle("hide-drops", !L.drops); cl.toggle("tools-less", !L.tools);
+  cl.toggle("hide-strip", !L.strip); cl.toggle("no-zoom", !L.zoom); cl.toggle("show-harm", !!L.harm); cl.toggle("hide-staff", !L.staff); cl.toggle("hide-drops", !L.drops); cl.toggle("hide-kb", !L.kb); cl.toggle("tools-less", !L.tools);
   $("moreBtn").setAttribute("aria-pressed", String(!!L.tools));
   $("staffBox").style.height = L.staffH + "px";
   $("panels").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(!!L[b.dataset.p])));
@@ -5570,7 +5573,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
   mv($("sect"), $("sPopTxt")); mv($("setStart"), $("sRow1")); mv($("setEnd"), $("sRow1")); mv($("whole"), $("sRow1"));
   mv($("secPick"), $("sRow2")); mv($("secSave"), $("sRow2")); mv($("secDrop"), $("sRow2"));
   mv($("countin").closest("label"), $("psCount")); mv($("click").closest("label"), $("psClick")); mv($("repSeg").parentElement, $("psRep"));
-  const pn = { strip: "Bars overview", zoom: "Bars close-up", staff: "Notation", drops: "Falling notes", harm: "Harmony" };
+  const pn = { strip: "Bars overview", zoom: "Bars close-up", staff: "Notation", drops: "Falling notes", harm: "Harmony", kb: "Keyboard" };
   $("panels").querySelectorAll("button").forEach(b => { b.textContent = pn[b.dataset.p] || b.textContent; });
   mv($("panels"), $("psShow"));
   mv($("midiBtn"), $("psMidi")); mv($("outSeg").parentElement, $("psOut")); mv($("waitInfo"), $("psInfo")); mv($("midiNote"), $("psInfo"));
