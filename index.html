@@ -385,6 +385,14 @@ body.practice.rot.flip .dock-in{padding-left:max(16px,env(safe-area-inset-bottom
 .pop-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pop .tempo-mini{display:flex;align-items:center;gap:8px;width:100%;flex:none}
 #tPop{min-width:360px}
+.pbtn .dyn{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:600;font-size:1.2rem;min-width:1.5em;text-align:center}
+#pPop{min-width:320px}
+.pv{touch-action:none;cursor:ew-resize;padding:2px 4px 6px;border-radius:10px;-webkit-user-select:none;user-select:none}
+.pv svg{display:block;width:100%;height:auto;overflow:visible}
+.pv .w{fill:none;stroke:var(--fg);stroke-width:1.5;stroke-linejoin:round}.pv .f{fill:var(--fg)}
+.pv .th{stroke:var(--fg);stroke-width:3;stroke-linecap:round}
+.pv text{fill:var(--muted);font:italic 600 15px Georgia,"Times New Roman",serif;text-anchor:middle}
+.pv text.on{fill:var(--fg)}
 .pop .tempo-mini .label{display:none}
 .pop .tempo-mini input[type=range]{flex:1 1 200px;min-width:140px}
 .pop .seg.vlist{display:flex;flex-direction:column;gap:2px;border:0;background:none;padding:0}
@@ -662,6 +670,7 @@ body.live-fing .fing-row{display:none!important}
       <div class="pd-grp" id="pdTrans"></div>
       <span class="pd-sep"></span>
       <button class="pbtn soft" id="tBtn" type="button" aria-haspopup="true"><span class="dim">Tempo</span><span class="q" aria-hidden="true">♩</span><span class="num" id="tVal">100</span></button>
+      <button class="pbtn" id="pvBtn" type="button" aria-haspopup="true" aria-label="Pia volume"><span class="dim">Pia</span><span class="dyn" id="pvVal">mf</span></button>
       <button class="pbtn" id="hL" type="button"><i class="hdot l" data-v="1"></i><span class="hlab">Left</span><span class="dim hst"></span></button>
       <button class="pbtn" id="hR" type="button"><i class="hdot r" data-v="1"></i><span class="hlab">Right</span><span class="dim hst"></span></button>
       <span class="pd-sep"></span>
@@ -669,6 +678,12 @@ body.live-fing .fing-row{display:none!important}
       <button class="pbtn icon tog" id="loopBtn" type="button" aria-label="Loop the section" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 014-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 01-4 4H3"/></svg></button>
       <button class="pbtn" id="secBtn" type="button" aria-haspopup="true"><span id="secVal">Whole piece</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
       <div class="pop" id="tPop" hidden><div class="pop-h">Tempo</div></div>
+      <div class="pop" id="pPop" hidden><div class="pop-h">Pia's volume</div>
+        <div class="pv" id="pv" role="slider" tabindex="0" aria-label="Pia's volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="67" aria-valuetext="mf">
+          <svg viewBox="0 0 320 66" aria-hidden="true"><defs><clipPath id="pvClip"><rect id="pvClipR" x="0" y="0" width="216" height="48"/></clipPath></defs>
+            <polygon class="w" points="8,24 312,4 312,44"/><polygon class="f" points="8,24 312,4 312,44" clip-path="url(#pvClip)"/>
+            <line class="th" id="pvTh" x1="216" y1="0" x2="216" y2="48"/><g id="pvTicks"></g></svg></div>
+        <div class="pop-hint">How loud Pia plays next to you. The keyboard's own knob sets the total.</div></div>
       <div class="pop" id="wPop" hidden><div class="pop-h">Wait for me</div></div>
       <div class="pop" id="sPop" hidden><div class="pop-h">Section</div><div id="sPopTxt"></div><div class="pop-row" id="sRow1"></div><div class="pop-row" id="sRow2"></div><div class="pop-row" id="sRow3"><button class="chip" id="drillBtn" type="button" hidden>Drill this section</button></div><div class="pop-hint">Tap a note on the strip or in the falling notes, then Set start or Set end. A section can start and end on any note.</div></div>
     </div></div>
@@ -1416,7 +1431,7 @@ const LS = { want: false, on: false, starting: false, sens: .5, stream: null, sr
   pk: null, nowPk: null, nowSnr: null, st: null, tickN: 0, ons: [], own: [], level: 0 };
 const lsAvail = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 try { const s = JSON.parse(localStorage.getItem("pianissimo-listen") || "null"); if (s) { LS.want = !!s.want && lsAvail; if (s.sens >= 0 && s.sens <= 1) LS.sens = s.sens; } } catch (e) {}
-const S = { bpm: 100, a: 0, b: 0, loop: true, countIn: true, click: false, hand: { r: 1, l: 1 }, wait: "off", out: "laptop", repeats: true };
+const S = { bpm: 100, a: 0, b: 0, loop: true, countIn: true, click: false, hand: { r: 1, l: 1 }, wait: "off", out: "laptop", repeats: true, pv: 2 / 3 };
 
 (function loadGlobals(){
   try {
@@ -1427,12 +1442,12 @@ const S = { bpm: 100, a: 0, b: 0, loop: true, countIn: true, click: false, hand:
         g = { loop: old.loop, countIn: old.countIn, click: old.click, hand: old.hand };
       }
     }
-    if (g) for (const k of ["loop", "countIn", "click", "hand", "out", "repeats"]) if (g[k] !== undefined) S[k] = g[k];
+    if (g) for (const k of ["loop", "countIn", "click", "hand", "out", "repeats", "pv"]) if (g[k] !== undefined) S[k] = g[k];
   } catch (e) {}
 })();
 function save(){
   try {
-    localStorage.setItem("solf-global", JSON.stringify({ loop: S.loop, countIn: S.countIn, click: S.click, hand: S.hand, out: S.out, repeats: S.repeats }));
+    localStorage.setItem("solf-global", JSON.stringify({ loop: S.loop, countIn: S.countIn, click: S.click, hand: S.hand, out: S.out, repeats: S.repeats, pv: S.pv }));
     if (P) localStorage.setItem("solf-p-" + P.id, JSON.stringify({ a: S.a, b: S.b, bpm: S.bpm }));
   } catch (e) {}
   if (typeof recSettings === "function") recSettings();
@@ -1976,6 +1991,25 @@ document.querySelectorAll(".seg[data-hand]").forEach(seg => seg.addEventListener
 $("mode").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; S.loop = b.dataset.loop === "1"; save(); syncUI(); });
 
 /* =====================================================================
+   Pia's volume (261030). One control that sets how loud Pia plays next to you.
+   S.pv is the slider position, 0 to 1; 2/3 (mf) is the loudness before this
+   control existed, so nothing changes until it is touched. The gain is a plain
+   multiplier on what Pia sounds: on the keyboard route it scales the strike
+   velocity she sends (the keyboard's own knob still sets the total), on the
+   laptop route it scales her audio. Your own playing is never touched.
+   The click, count-in and drums are left alone so they stay audible.
+   ===================================================================== */
+const PV_MARKS = [["pp", .21], ["p", .33], ["mp", .48], ["mf", 2 / 3], ["f", .82], ["ff", 1]];
+const piaGain = () => 1.5 * Math.max(0, Math.min(1, S.pv == null ? 2 / 3 : S.pv));
+const pvName = x => PV_MARKS.reduce((b, m) => Math.abs(m[1] - x) < Math.abs(b[1] - x) ? m : b)[0];
+
+/* Hooks for later skins and animations (nothing uses them yet): window.PIA_FX.on(fn) calls fn(event) with
+   { type: "note", midi, hand, vel, at, len } when one of Pia's notes sounds ("at" is performance.now() time),
+   and { type: "volume", x, name } when the volume moves. Listeners must be quick and must not throw. */
+const PIA_FX = window.PIA_FX = { list: [], on(fn){ this.list.push(fn); return () => { this.list = this.list.filter(f => f !== fn); }; },
+  emit(ev){ for (const f of this.list) { try { f(ev); } catch (e) {} } } };
+
+/* =====================================================================
    Sound: a small additive piano, rendered once per pitch
    ===================================================================== */
 let ctx = null, master = null, bufs = {}, clickHi = null, clickLo = null;
@@ -2036,6 +2070,8 @@ function clickBuf(freq){
 }
 let voices = [];
 function voice(midi, t, len, v){
+  v *= piaGain(); if (!(v > 0)) return;
+  if (PIA_FX.list.length) { const at = performance.now() + (ctx ? Math.max(0, t - ctx.currentTime) * 1000 : 0); PIA_FX.emit({ type: "note", midi, vel: Math.min(1, v / 1.5), at, len }); }
   if (S.out === "kb" && midiOut) { sendNote(midi, t, len, v); return; }
   if (!bufs[midi]) return;
   const src = ctx.createBufferSource(); src.buffer = bufs[midi];
@@ -4026,7 +4062,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261029a";
+const BUILD = "261030a";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -4906,7 +4942,9 @@ function gStats(){
 function gAudio(fn){ if (ensureCtx() && !clickHi) { clickHi = clickBuf(1900); clickLo = clickBuf(1250); } fn(); }
 function gKey(m, v, t){ if (G.running && GAMES[G.game].key) GAMES[G.game].key(m, v, t); }
 function gNote(m, when, durMs, vel){
-  vel = Math.max(1, Math.min(127, Math.round(vel)));
+  const pg = piaGain(); if (!(pg > 0)) return;
+  vel = Math.max(1, Math.min(127, Math.round(vel * pg)));
+  if (PIA_FX.list.length) PIA_FX.emit({ type: "note", midi: m, vel: vel / 127, at: when, len: durMs / 1000 });
   if (S.out === "kb" && midiOut) { try { midiOut.send([0x90 | outCh, m, vel], when); midiOut.send([0x80 | outCh, m, 0], when + durMs); } catch (e) {} return; }
   if (!ensureCtx()) return;
   if (!bufs[m]) bufs[m] = renderNote(m);
@@ -5556,6 +5594,42 @@ showEmpty();
 applyView();
 if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kbBox"));
 
+/* ---------- Pia's volume slider: a hairpin (the crescendo mark) you drag along; continuous, with the usual markings under it ---------- */
+(function piaVolume(){
+  const box = $("pv"), NS = "http://www.w3.org/2000/svg", X0 = 8, X1 = 312, ticks = $("pvTicks");
+  PV_MARKS.forEach(m => { const t = document.createElementNS(NS, "text"); t.setAttribute("x", X0 + (X1 - X0) * m[1]); t.setAttribute("y", 64); t.textContent = m[0]; t.dataset.n = m[0]; ticks.appendChild(t); });
+  let last = null;
+  window.pvDraw = function(){
+    const x = Math.max(0, Math.min(1, S.pv == null ? 2 / 3 : S.pv)), nm = pvName(x);
+    if (last === x) return; last = x;
+    const px = X0 + (X1 - X0) * x;
+    $("pvClipR").setAttribute("width", px); $("pvTh").setAttribute("x1", px); $("pvTh").setAttribute("x2", px);
+    ticks.querySelectorAll("text").forEach(t => t.classList.toggle("on", t.dataset.n === nm));
+    $("pvVal").textContent = nm; box.setAttribute("aria-valuenow", Math.round(x * 100)); box.setAttribute("aria-valuetext", nm);
+  };
+  const set = (x, quiet) => {
+    x = Math.round(Math.max(0, Math.min(1, x)) * 100) / 100;
+    if (x === S.pv) return; S.pv = x; pvDraw(); if (!quiet) save();
+    PIA_FX.emit({ type: "volume", x, name: pvName(x) });
+  };
+  const svg = box.querySelector("svg");
+  const at = e => {   /* through the drawing's own matrix, so it still follows the finger when the player is turned sideways */
+    const m = svg.getScreenCTM(); if (!m) return;
+    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    set((pt.matrixTransform(m.inverse()).x - X0) / (X1 - X0), true);
+  };
+  let down = false, hear = 0;
+  box.addEventListener("pointerdown", e => { down = true; try { box.setPointerCapture(e.pointerId); } catch (x) {} at(e); });
+  box.addEventListener("pointermove", e => { if (down) at(e); });
+  const up = () => { if (!down) return; down = false; save(); };
+  box.addEventListener("pointerup", up); box.addEventListener("pointercancel", up);
+  box.addEventListener("keydown", e => {
+    const d = e.key === "ArrowRight" || e.key === "ArrowUp" ? .03 : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -.03 : e.key === "Home" ? -1 : e.key === "End" ? 1 : 0;
+    if (d) { set((S.pv == null ? 2 / 3 : S.pv) + d); e.preventDefault(); }
+  });
+  pvDraw();
+})();
+
 /* =====================================================================
    Calmer layout (261027): move the existing controls into the top bar,
    the dock, its short menus and the settings sheet. Nothing is rebuilt:
@@ -5581,7 +5655,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
   mv($("verLine"), $("psVer"));
 
   /* menus: one open at a time; a tap elsewhere or Escape closes it */
-  const pops = { tBtn: "tPop", wBtn: "wPop", secBtn: "sPop" };
+  const pops = { tBtn: "tPop", pvBtn: "pPop", wBtn: "wPop", secBtn: "sPop" };
   const closePops = () => Object.values(pops).forEach(id => { $(id).hidden = true; });
   const place = (btn, pop) => {
     const d = $("pdock").getBoundingClientRect(), b = btn.getBoundingClientRect(), rot = document.body.classList.contains("rot");
@@ -5640,6 +5714,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
     set($("wBtn"), "hidden", $("midiRow").hidden && !lsAvail);
     set($("psKeysGrp"), "hidden", $("midiRow").hidden);
     set($("secVal"), "textContent", sectLabel());
+    if (window.pvDraw) pvDraw();
   }
   try { syncUI = (o => function(){ const r = o.apply(this, arguments); refresh(); return r; })(syncUI); } catch (e) {}
   setInterval(refresh, 500);
