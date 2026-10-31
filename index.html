@@ -4090,12 +4090,12 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261030e";
+const BUILD = "261030T2155";   /* yymmddThhmm, New York time: refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
   const line = document.getElementById("verLine");
-  const label = "Version " + BUILD.replace(/^(\d\d)(\d\d)(\d\d).*/, "$1-$2-$3");
+  const label = "Version " + BUILD;
   if (line) line.innerHTML = label + ' <button type="button" id="verReload" class="chip" hidden>A new version is ready: reload</button>';
   const btn = document.getElementById("verReload");
   if (btn) btn.addEventListener("click", () => location.reload());
