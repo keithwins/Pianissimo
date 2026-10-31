@@ -559,7 +559,7 @@ body.live-fing .fing-row{display:none!important}
       <button class="play js-play" type="button"><svg viewBox="0 0 14 14" aria-hidden="true"><path class="pi" d="M2 1l11 6-11 6z"/></svg><span class="pt">Play</span></button>
       <div class="tempo">
         <div class="tempo-top"><span class="label">Tempo</span><span class="bpm js-bpm">♩ = 100</span></div>
-        <input type="range" class="js-tempo" id="tempo" min="20" max="300" step="2" value="100" aria-label="Tempo, quarter notes per minute">
+        <input type="range" class="js-tempo" id="tempo" min="10" max="300" step="2" value="100" aria-label="Tempo, quarter notes per minute">
         <div class="chips" id="chips">
           <button class="chip" type="button" data-f="0.5">Half</button>
           <button class="chip" type="button" data-f="0.75">Three-quarter</button>
@@ -645,7 +645,7 @@ body.live-fing .fing-row{display:none!important}
     <div class="row only-practice">
       <span class="tempo-mini"><span class="label">Tempo</span>
         <button class="chip js-tdown" type="button" aria-label="Slower">−</button>
-        <input type="range" class="js-tempo" id="tempo2" min="20" max="300" step="2" value="100" aria-label="Tempo, quarter notes per minute">
+        <input type="range" class="js-tempo" id="tempo2" min="10" max="300" step="2" value="100" aria-label="Tempo, quarter notes per minute">
         <button class="chip js-tup" type="button" aria-label="Faster">+</button>
         <span class="bpm js-bpm">♩ = 100</span></span>
       <span class="hand"><span class="sw r"></span>R
@@ -1422,7 +1422,9 @@ const $ = id => document.getElementById(id);
 const ns = "http://www.w3.org/2000/svg";
 const statusEls = document.querySelectorAll(".js-status");
 const setStatus = t => { statusEls.forEach(el => { el.textContent = t; }); };
+const BPM_MIN = 10, BPM_MAX = 300;     // the slowest and fastest tempo (quarter notes a minute); the sliders in the page use the same numbers
 const tempos = document.querySelectorAll(".js-tempo"), bpmOuts = document.querySelectorAll(".js-bpm");
+tempos.forEach(t => { t.min = BPM_MIN; t.max = BPM_MAX; });
 
 let P = null, ON = [], BEATS = [], barOnsets = [];
 let DRILLFROM = null;      // set while an exercise was started from a piece with "Drill this": { id, title }, so the exercise can lead back
@@ -1964,7 +1966,7 @@ function setPiece(p){
   S.a = ps && ps.a >= 0 && ps.a < ON.length ? ps.a : 0;
   S.b = ps && ps.b >= S.a && ps.b < ON.length ? ps.b : ON.length - 1;
   S.bpm = ps && ps.bpm ? ps.bpm : (P.defaultBpm || P.tempo);
-  S.bpm = Math.max(20, Math.min(300, Math.round(S.bpm / 2) * 2));
+  S.bpm = Math.max(BPM_MIN, Math.min(BPM_MAX, Math.round(S.bpm / 2) * 2));
   buildStrip(); buildKeyboard(); layoutDrops(); syncUI(); stripNow(null);
   loadStaff();
   $("pieceTitle").textContent = P.title;
@@ -1985,10 +1987,10 @@ function setPiece(p){
 
 /* controls */
 tempos.forEach(t => t.addEventListener("input", () => { S.bpm = +t.value; save(); syncUI(); }));
-const nudge = d => { S.bpm = Math.max(20, Math.min(300, S.bpm + d)); save(); syncUI(); };
+const nudge = d => { S.bpm = Math.max(BPM_MIN, Math.min(BPM_MAX, S.bpm + d)); save(); syncUI(); };
 document.querySelectorAll(".js-tdown").forEach(b => b.addEventListener("click", () => nudge(-4)));
 document.querySelectorAll(".js-tup").forEach(b => b.addEventListener("click", () => nudge(4)));
-$("chips").addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c || !P) return; S.bpm = Math.round(P.tempo * +c.dataset.f / 2) * 2; save(); syncUI(); });
+$("chips").addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c || !P) return; S.bpm = Math.max(BPM_MIN, Math.min(BPM_MAX, Math.round(P.tempo * +c.dataset.f / 2) * 2)); save(); syncUI(); });
 $("countin").addEventListener("change", e => { S.countIn = e.target.checked; save(); });
 function syncRepUI(){ $("repSeg").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.r === "1") === (S.repeats !== false)))); }
 syncRepUI();
@@ -4090,7 +4092,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261030T2157";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261031T0837";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
