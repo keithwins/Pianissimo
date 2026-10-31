@@ -3526,7 +3526,7 @@ async function connectFolder(){
   try { state = await folderHandle.queryPermission({ mode: "read" }); } catch (e) {}
   folderNeedsOK = state !== "granted";
   folderUI();
-  if (!folderNeedsOK) scanFolder();
+  if (!folderNeedsOK) { scanFolder(); setTimeout(() => flushRec(true), 1500); }   // (session records that waited in the browser go to the folder if it can be written)
   else setLibNote(`Press Reconnect your folder to let the player read “${folderHandle.name}” again.`);
 }
 $("folderPick").addEventListener("click", async () => {
@@ -3545,7 +3545,7 @@ $("folderAgain").addEventListener("click", async () => {
   try { state = await folderHandle.requestPermission({ mode: "readwrite" }); } catch (e) {}
   if (state !== "granted") { try { state = await folderHandle.requestPermission({ mode: "read" }); } catch (e) {} }
   folderNeedsOK = state !== "granted"; folderUI();
-  if (!folderNeedsOK) scanFolder(); else setLibNote("The player still can't read the folder. Choose it again if it has moved.", true);
+  if (!folderNeedsOK) { scanFolder(); flushRec(true); } else setLibNote("The player still can't read the folder. Choose it again if it has moved.", true);
 });
 $("folderScan").addEventListener("click", async () => { if (folderPending) await canWriteFolder(true); scanFolder(); });
 
@@ -3930,6 +3930,7 @@ const canWriteFolder = async ask => {
     if (st !== "granted" && ask) {
       st = await folderHandle.requestPermission({ mode: "readwrite" });
       if (st === "granted" && folderPending && !scanning) setTimeout(() => scanFolder(), 0);   // fingering that was waiting goes into the files now
+      if (st === "granted") setTimeout(() => flushRec(true), 0);                                // and so do the session records that were waiting
     }
     return st === "granted";
   } catch (e) { return false; }
@@ -4089,7 +4090,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261030d";
+const BUILD = "261030e";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -4148,9 +4149,9 @@ async function appendDay(day, text){
   const w = await fh.createWritable({ keepExistingData: true });
   await w.seek(size); await w.write(text); await w.close();
 }
-async function flushRec(){
+async function flushRec(force){     // force: also look for session lines held in the browser, even with nothing new to write
   clearTimeout(REC.timer); REC.timer = 0;
-  if (REC.busy || !REC.buf.length) return;
+  if (REC.busy || (!REC.buf.length && !force)) return;
   REC.busy = true;
   const lines = REC.buf.splice(0), byDay = new Map();
   for (const [d, l] of lines) byDay.set(d, (byDay.get(d) || "") + l + "\n");
