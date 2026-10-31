@@ -2080,7 +2080,14 @@ function voice(midi, t, len, v){
   src.connect(g); g.connect(master); src.start(t); src.stop(off + .35);
   voices.push({ src, g, end: off + .35 });
 }
-function click(t, accent, v){
+/* the click and count-in come from the same place as everything else: through the keyboard (two high notes, the same as the
+   games use) when the keyboard is the sound source, so they line up with Pia and you, and from the laptop otherwise */
+function click(t, accent, v, laptopOnly){
+  if (!laptopOnly && S.out === "kb" && midiOut) {
+    const at = performance.now() + Math.max(0, t - ctx.currentTime) * 1000, n = accent ? 108 : 103, vel = Math.max(1, Math.min(127, Math.round(40 + v * 80)));
+    try { midiOut.send([0x90 | outCh, n, vel], at); midiOut.send([0x80 | outCh, n, 0], at + 60); } catch (e) {}
+    return;
+  }
   const src = ctx.createBufferSource(); src.buffer = accent ? clickHi : clickLo;
   const g = ctx.createGain(); g.gain.value = v; src.connect(g); g.connect(ctx.destination); src.start(t);
   voices.push({ src, g, end: t + .05 });
@@ -4062,7 +4069,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261030a";
+const BUILD = "261030b";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -4976,7 +4983,7 @@ function gBeat(when, i, num){
   } else {
     if (!ensureCtx()) return;
     if (!clickHi) { clickHi = clickBuf(1900); clickLo = clickBuf(1250); }
-    click(ctx.currentTime + Math.max(0, when - performance.now()) / 1000, accent, .9);
+    click(ctx.currentTime + Math.max(0, when - performance.now()) / 1000, accent, .9, true);
   }
 }
 
