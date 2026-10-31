@@ -1479,6 +1479,22 @@ function beatsIn(t0, t1){
 }
 const endTOf = k => k + 1 < ON.length ? ON[k + 1].t : ON[k].t + Math.max(...ON[k].notes.map(n => n.d));
 const sectionEndT = () => endTOf(S.b);
+/* Going round a section: a section that starts with a pickup bar normally starts round again at the pickup. But when the
+   last bar already ends with a lead-in of the same kind (the same hands, filling the pickup's length, in a bar that is
+   already full, as in the endings of Maple Leaf Rag), the pickup would sound twice, so the later times round start at
+   the first full bar instead. A piece that simply ends keeps its pickup when it goes round. */
+function loopStep(){
+  if (!P || !ON.length || !ON[S.a] || !ON[S.b]) return S.a;
+  const A = ON[S.a], pb = P.bars[A.bar], lb = P.bars[ON[S.b].bar];
+  if (!pb || !lb || ON[S.b].bar === A.bar) return S.a;
+  const nom = pb.num * 4 / pb.den;
+  if (A.t - pb.start > 1e-6 || pb.len > nom - 1e-6 || pb.len + lb.len < nom + 1e-6) return S.a;
+  const hands = new Set(), tail = new Set(), t0 = sectionEndT() - pb.len - 1e-6;
+  for (let k = S.a; k <= S.b; k++) { if (ON[k].bar === A.bar) ON[k].notes.forEach(n => hands.add(n.hand)); if (ON[k].t >= t0) ON[k].notes.forEach(n => tail.add(n.hand)); }
+  if (!hands.size || hands.size !== tail.size || [...hands].some(h => !tail.has(h))) return S.a;
+  for (let k = S.a + 1; k <= S.b; k++) if (ON[k].bar !== A.bar) return k;
+  return S.a;
+}
 /* where the current play started: Play carries on from wherever you are; when it
    reaches the end of the section it goes round the section (or stops, with Once);
    started after the section, it plays to the end of the piece */
@@ -1694,14 +1710,14 @@ function structure(p){
     return { ...sg, name, again: !!seen, rep: bars.slice(sg.s, sg.e + 1).some(b => b.back), from: bars[sg.s].label, to: bars[sg.e].label };
   });
 }
-/* select written bars s..e (first time they're played) */
+/* select written bars s..e, the first time they're played: all of the way through any repeat inside them */
 function selectBars(s, e, what){
   if (!P) return false;
   let a = -1;
   for (let k = 0; k < ON.length; k++) { const bi = srcBarAt(ON[k].st); if (bi >= s && bi <= e) { a = k; break; } }
   if (a < 0) return false;
   let b = a;
-  while (b + 1 < ON.length) { const bi = srcBarAt(ON[b + 1].st); if (bi < s || bi > e || ON[b + 1].st < ON[b].st - 1e-6) break; b++; }
+  while (b + 1 < ON.length) { const bi = srcBarAt(ON[b + 1].st); if (bi < s || bi > e) break; b++; }   // runs on through a written repeat and its endings, so "A 1-17" is 1-16, then 1-15 again, then 17
   if (playing) stop();
   S.a = a; S.b = b; save(); syncUI();
   stepIdx = -1; clearMarks(); stepIdx = S.a; mark(ON[S.a], Infinity); renderDrops();
@@ -1851,7 +1867,7 @@ function moveTo(k){
 function lbOnset(t){ let a = 0, b = ON.length; while (a < b) { const m = (a + b) >> 1; if (ON[m].t < t) a = m + 1; else b = m; } return a; }
 function renderDrops(){
   if (!P || !gDrops || !document.body.classList.contains("practice") || !L.drops) return;
-  const Ta = ON[S.a].t, Tend = sectionEndT(), len = Math.max(Tend - Ta, 1e-3);
+  const Ta = ON[S.a].t, Tend = sectionEndT(), L0 = loopStep(), Tl = ON[L0].t, len = Math.max(Tend - Tl, 1e-3), len0 = Math.max(Tend - Ta, 1e-3);
   const sNow = sigNow(), look = DROP_H / PPQ, selK = FE.on && FE.sel ? fKey(FE.sel) : null;
   /* the stretches of music in the order they'll pass the keyboard, each with its place on the timeline */
   const segs = [];
@@ -1859,11 +1875,11 @@ function renderDrops(){
     segs.push({ k0: play0.k, k1: play0.end, base: play0.base, off: 0 });
     if (play0.loops && S.loop) {
       const i0 = Math.max(1, Math.floor((sNow - MAXD - play0.len0) / len) + 1);
-      for (let it = i0; it < i0 + 3; it++) segs.push({ k0: S.a, k1: S.b, base: Ta, off: play0.len0 + (it - 1) * len });
+      for (let it = i0; it < i0 + 3; it++) segs.push({ k0: L0, k1: S.b, base: Tl, off: play0.len0 + (it - 1) * len });
     }
   } else if (stepIdx < 0 || (stepIdx >= S.a && stepIdx <= S.b)) {
-    const it0 = Math.max(0, Math.floor(sNow / len));
-    for (let it = it0; it < it0 + 3; it++) segs.push({ k0: S.a, k1: S.b, base: Ta, off: it * len });
+    segs.push({ k0: S.a, k1: S.b, base: Ta, off: 0 });
+    for (let it = 1; it < 3; it++) segs.push({ k0: L0, k1: S.b, base: Tl, off: len0 + (it - 1) * len });
   } else segs.push({ k0: 0, k1: ON.length - 1, base: Ta, off: 0 });
   let nd = 0, nt = 0, nb = 0;
   for (const sg of segs) {
@@ -2180,7 +2196,7 @@ function start(){
     for (let q = 0; q < n; q++) { click(nextT + q * u, q === 0, .9); visQ.push({ t: nextT + q * u, count: q + 1, of: n }); }
     nextT += n * u;
   }
-  iter = 0; secLen = Math.max(sectionEndT() - ON[S.a].t, 1e-3); anchor = { audio: nextT, sig: 0 };
+  iter = 0; secLen = Math.max(sectionEndT() - ON[loopStep()].t, 1e-3); anchor = { audio: nextT, sig: 0 };
   playing = true; playStartedAt = performance.now(); setPlayUI(true); wake();
   rec({ e: "play", k: ks, bar: P.bars[ON[ks].bar].label, bpm: S.bpm, from: P.bars[ON[S.a].bar].label, to: P.bars[ON[S.b].bar].label, loop: S.loop });
   timer = setInterval(tick, 25); tick();
@@ -2192,7 +2208,7 @@ function tick(){
   let guard = 0;
   while (endAt === null && nextT < now + .15 && guard++ < 500) {
     if (cursor > segEnd) {
-      if (play0.loops && S.loop) { iter++; cursor = S.a; segEnd = S.b; segBase = ON[S.a].t; segOff = play0.len0 + (iter - 1) * secLen; }
+      if (play0.loops && S.loop) { iter++; cursor = loopStep(); segEnd = S.b; segBase = ON[cursor].t; segOff = play0.len0 + (iter - 1) * secLen; }
       else { endAt = nextT; break; }
     }
     const o = ON[cursor], spq = 60 / S.bpm;
@@ -4069,7 +4085,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261030b";
+const BUILD = "261030c";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -5736,7 +5752,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
      carry on; set SHOW_TIMING to true to bring the readout back. */
   const SHOW_TIMING = false;
   const DT = { hist: [], tol: 40 };
-  function dueSig(k, i){ return i === 0 ? ON[k].t - play0.base : play0.len0 + (i - 1) * secLen + (ON[k].t - ON[S.a].t); }
+  function dueSig(k, i){ return i === 0 ? ON[k].t - play0.base : play0.len0 + (i - 1) * secLen + (ON[k].t - ON[loopStep()].t); }
   function measure(m, ts){
     if (!playing || !ctx || !play0) return;
     const spb = 60 / S.bpm, lag = Math.max(0, performance.now() - ts) / 1000;
@@ -5745,7 +5761,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
     let best = null;
     for (let i = Math.max(0, cur - 1); i <= cur + 1; i++) {
       if (i > 0 && !(play0.loops && S.loop)) break;
-      const lo = i === 0 ? play0.k : S.a, hi = i === 0 ? play0.end : S.b;
+      const lo = i === 0 ? play0.k : loopStep(), hi = i === 0 ? play0.end : S.b;
       for (let k = lo; k <= hi; k++) {
         if (!ON[k].notes.some(n => n.midi === m)) continue;
         const d = s - dueSig(k, i);
