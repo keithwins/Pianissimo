@@ -286,6 +286,9 @@ body:not(.practice) .staff-box,body:not(.practice) .split,body.hide-staff .staff
 .bk{fill:var(--black-key)}
 .wk.on-r,.bk.on-r{fill:var(--rh)} .wk.on-l,.bk.on-l{fill:var(--lh)}
 .kblabel{fill:var(--muted);font:500 9px var(--font-num)}
+.kbname{display:none}
+body.show-names .kbname{display:inline}
+body.show-names .kblabel{font-size:12px;font-weight:600;fill:var(--fg)}
 /* keys you're holding on your own keyboard: grey, or outlined when it's a key you were asked for */
 .wk.press:not(.on-r):not(.on-l),.bk.press:not(.on-r):not(.on-l){fill:var(--press)}
 .wk.press.on-r,.wk.press.on-l,.bk.press.on-r,.bk.press.on-l{stroke:var(--fg);stroke-width:3}
@@ -1791,6 +1794,7 @@ function buildKeyboard(){
     keyEl[m] = svgEl(gKeys, "rect", { x: whitePos[m] * W + .5, y: .5, width: W - 1, height: KH, rx: 2, "data-m": m }, "wk");
     keyGeom[m] = { x: whitePos[m] * W + 2, w: W - 4, cx: whitePos[m] * W + W / 2 };
     if (m % 12 === 0) svgEl(gKeys, "text", { x: whitePos[m] * W + W / 2, y: KH - 5, "text-anchor": "middle" }, "kblabel").textContent = "C" + (m / 12 - 1);
+    else svgEl(gKeys, "text", { x: whitePos[m] * W + W / 2, y: KH - 5, "text-anchor": "middle" }, "kblabel kbname").textContent = "CDEFGAB"[[0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6][m % 12]];   // (shown with the Names switch)
   }
   for (let m = lo; m <= hi; m++) if (isBlack(m) && whitePos[m - 1] !== undefined) {
     keyEl[m] = svgEl(gKeys, "rect", { x: whitePos[m - 1] * W + W - 6, y: .5, width: 12, height: BH, rx: 1.5, "data-m": m }, "bk");
@@ -3644,7 +3648,7 @@ try { Object.assign(L, JSON.parse(localStorage.getItem("pianissimo-layout") || "
 function saveLayout(){ try { localStorage.setItem("pianissimo-layout", JSON.stringify(L)); } catch (e) {} }
 function applyPanels(){
   const cl = document.body.classList;
-  cl.toggle("hide-strip", !L.strip); cl.toggle("no-zoom", !L.zoom); cl.toggle("show-harm", !!L.harm); cl.toggle("hide-staff", !L.staff); cl.toggle("hide-drops", !L.drops); cl.toggle("hide-kb", !L.kb); cl.toggle("tools-less", !L.tools);
+  cl.toggle("hide-strip", !L.strip); cl.toggle("no-zoom", !L.zoom); cl.toggle("show-harm", !!L.harm); cl.toggle("show-names", !!L.names); cl.toggle("hide-staff", !L.staff); cl.toggle("hide-drops", !L.drops); cl.toggle("hide-kb", !L.kb); cl.toggle("tools-less", !L.tools);
   $("moreBtn").setAttribute("aria-pressed", String(!!L.tools));
   $("staffBox").style.height = L.staffH + "px";
   $("panels").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(!!L[b.dataset.p])));
@@ -4138,7 +4142,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261031T0933";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261031T0938";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -5070,6 +5074,7 @@ function gkBuild(lo, hi){
   for (let m = lo; m <= hi; m++) if (!isBlackPc(m % 12)) {
     GK.el[m] = svgEl(g, "rect", { x: wp[m] * W + .5, y: .5, width: W - 1, height: H, rx: 2, "data-m": m }, "wk");
     if (m % 12 === 0) svgEl(g, "text", { x: wp[m] * W + W / 2, y: H - 5, "text-anchor": "middle" }, "kblabel").textContent = "C" + (m / 12 - 1);
+    else svgEl(g, "text", { x: wp[m] * W + W / 2, y: H - 5, "text-anchor": "middle" }, "kblabel kbname").textContent = "CDEFGAB"[[0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6][m % 12]];
   }
   for (let m = lo; m <= hi; m++) if (isBlackPc(m % 12) && wp[m - 1] !== undefined)
     GK.el[m] = svgEl(g, "rect", { x: wp[m - 1] * W + W - 6, y: .5, width: 12, height: BH, rx: 1.5, "data-m": m }, "bk");
@@ -5723,7 +5728,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
   mv($("sect"), $("sPopTxt")); mv($("setStart"), $("sRow1")); mv($("setEnd"), $("sRow1")); mv($("whole"), $("sRow1"));
   mv($("secPick"), $("sRow2")); mv($("secSave"), $("sRow2")); mv($("secDrop"), $("sRow2"));
   mv($("countin").closest("label"), $("psCount")); mv($("click").closest("label"), $("psClick")); mv($("repSeg").parentElement, $("psRep"));
-  const pn = { strip: "Bars overview", zoom: "Bars close-up", staff: "Notation", fing: "Fingering on the notation", names: "Note names on the notation", drops: "Falling notes", harm: "Harmony", kb: "Keyboard" };
+  const pn = { strip: "Bars overview", zoom: "Bars close-up", staff: "Notation", fing: "Fingering on the notation", names: "Note names (notation and keyboard)", drops: "Falling notes", harm: "Harmony", kb: "Keyboard" };
   $("panels").querySelectorAll("button").forEach(b => { b.textContent = pn[b.dataset.p] || b.textContent; });
   mv($("panels"), $("psShow"));
   mv($("midiBtn"), $("psMidi")); mv($("outSeg").parentElement, $("psOut")); mv($("waitInfo"), $("psInfo")); mv($("midiNote"), $("psInfo"));
