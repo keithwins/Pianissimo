@@ -2186,6 +2186,7 @@ function start(){
   stopAuto(); waitK = -1;
   let ks = stepIdx >= 0 && stepIdx < ON.length ? stepIdx : S.a;
   if (ks === S.b || ks === ON.length - 1) ks = S.a;          // parked on the last note: go round from the top
+  if (S.loop && ks > S.b) ks = S.a;                          // parked after the section: with Loop on, play the section
   const firstEnd = ks <= S.b ? S.b : ON.length - 1;
   play0 = { k: ks, end: firstEnd, base: ON[ks].t, len0: Math.max(endTOf(firstEnd) - ON[ks].t, 1e-3), loops: ks <= S.b };
   cursor = ks; segEnd = firstEnd; segOff = 0; segBase = ON[ks].t;
@@ -2476,7 +2477,8 @@ function satisfied(){
 function carryOn(k){
   let n = k + 1;
   if (k > S.b && k >= ON.length - 1) { finishWait("Reached the end of the piece · press Start or tap a note to go again"); return; }
-  if (k === S.b) {
+  if (k > S.b && S.loop) { passT0 = 0; extra = 0; fullPass = true; n = S.a; }   // strayed past the end of the section: back into it, not on to the end of the piece
+  else if (k === S.b) {
     if (fullPass && passT0) {
       passes++;
       const secs = (performance.now() - passT0) / 1000;
@@ -2515,8 +2517,10 @@ $("wait").addEventListener("click", e => {
     if (stepIdx >= 0 && !playing) { clearMarks(); mark(ON[stepIdx], Infinity); }
     setStatus("Wait for me is off"); return;
   }
+  stopAuto(); waitK = -1;
   if (playing) stop();
-  withAudio(() => enterWait(stepIdx >= 0 ? stepIdx : S.a));
+  enterWait(stepIdx >= 0 ? stepIdx : S.a);     // at once: it needs no sound, so the instrument-tuning queue can't hold it up or drop it
+  withAudio(() => { if (waitOn() && waitK < 0 && !autoT) enterWait(stepIdx >= 0 ? stepIdx : S.a); });
   if (!navigator.requestMIDIAccess && !LS.want) setStatus("No keyboard cable here: turn on Listen in this menu so the piece can hear you");
   /* for finding out why a first choice sometimes doesn't take: what the player looked like just after */
   setTimeout(() => { try { rec({ e: "waitsel", w: S.wait, playing, waitK, auto: !!autoT, midi: midiState, ctx: ctx ? ctx.state : "none", tuning, step: stepIdx, a: S.a, b: S.b, fe: !!FE.on, game: !!G.on }); } catch (e) {} }, 300);
@@ -4085,7 +4089,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261030c";
+const BUILD = "261030d";
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
