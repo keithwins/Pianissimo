@@ -1454,6 +1454,8 @@ function save(){
   try {
     localStorage.setItem("solf-global", JSON.stringify({ loop: S.loop, countIn: S.countIn, click: S.click, hand: S.hand, out: S.out, repeats: S.repeats, pv: S.pv }));
     if (P) localStorage.setItem("solf-p-" + P.id, JSON.stringify({ a: S.a, b: S.b, bpm: S.bpm }));
+    if (P && P.ex) localStorage.setItem("solf-ex-bpm-" + P.ex.fid, String(S.bpm));     // an exercise's working tempo belongs to its kind (scales, arpeggios…), so changing key keeps it
+    else if (P && typeof practice !== "undefined" && practice.data && practice.id === P.id && practice.data.bpm !== S.bpm) { practice.data.bpm = S.bpm; touchPractice(); }   // and a piece's goes in its practice file, so it travels with the folder
   } catch (e) {}
   if (typeof recSettings === "function") recSettings();
 }
@@ -1957,6 +1959,7 @@ function syncUI(){
 }
 
 function setPiece(p){
+  if (P && p !== P) { try { save(); } catch (e) {} }     // the piece being left keeps its working tempo and section
   if (playing) stop();
   stopAuto(); waitK = -1; passes = 0; $("waitInfo").textContent = "";
   if (FE.piece && FE.piece !== p) feLeave();
@@ -1969,7 +1972,8 @@ function setPiece(p){
   let ps = null; try { ps = JSON.parse(localStorage.getItem("solf-p-" + P.id) || "null"); } catch (e) {}
   S.a = ps && ps.a >= 0 && ps.a < ON.length ? ps.a : 0;
   S.b = ps && ps.b >= S.a && ps.b < ON.length ? ps.b : ON.length - 1;
-  S.bpm = ps && ps.bpm ? ps.bpm : (P.defaultBpm || P.tempo);
+  let famBpm = 0; if (P.ex) { try { famBpm = +localStorage.getItem("solf-ex-bpm-" + P.ex.fid) || 0; } catch (e) {} }
+  S.bpm = P.ex && famBpm ? famBpm : ps && ps.bpm ? ps.bpm : (P.defaultBpm || P.tempo);
   S.bpm = Math.max(BPM_MIN, Math.min(BPM_MAX, Math.round(S.bpm / 2) * 2));
   buildStrip(); buildKeyboard(); layoutDrops(); syncUI(); stripNow(null);
   loadStaff();
@@ -3832,8 +3836,8 @@ function swBackground(my){
 }
 /* What the notation carries beside the notes (the Fingering and Names switches in Settings, either, both or neither).
    Names: each sounding note's letter (E♭, F♯…); in a chord only the lowest note gets one; tied-on notes and grace notes
-   get none. With both on, the lowest note of a chord carries "letter finger" in one label and the others just their
-   finger. The labels are drawn where the finger number would be, which is where the notation library has room for them. */
+   get none. With both on, the letter is drawn directly under that note's finger number (the other notes of a chord keep
+   just their finger). The labels are drawn where the finger number would be, which is where the notation library has room. */
 const labelMode = () => (L.fing !== false ? "f" : "") + (L.names ? "n" : "") || "none";
 const NAME_ACC = { "-2": "𝄫", "-1": "♭", "0": "", "1": "♯", "2": "𝄪" };
 function labelsXML(xml, fing, names){
@@ -3858,7 +3862,11 @@ function labelsXML(xml, fing, names){
         }
         if (low) {
           const have = fingEls(low.el);
-          if (have.length) have[0].textContent = LABEL_FMT(low.name, have[0].textContent.trim());
+          if (have.length) {     // the letter goes under its finger number: the library draws a note's labels outermost-first, so the right hand's (above the notes) takes the letter last and the left hand's (below) takes it first
+            const fe = doc.createElement("fingering"); fe.textContent = low.name;
+            if ((kidEl(low.el, "staff") || {}).textContent === "2") have[0].parentNode.insertBefore(fe, have[0]);
+            else have[have.length - 1].parentNode.appendChild(fe);
+          }
           else {
             let nt = kidEl(low.el, "notations");
             if (!nt) { nt = doc.createElement("notations"); const ly = kidEl(low.el, "lyric"); if (ly) low.el.insertBefore(nt, ly); else low.el.appendChild(nt); }
@@ -3872,7 +3880,6 @@ function labelsXML(xml, fing, names){
     return new XMLSerializer().serializeToString(doc);
   } catch (e) { return xml; }
 }
-const LABEL_FMT = (name, finger) => `${name} ${finger}`;
 /* what the staff draws: the fingering in play (yours, the printed, or the suggestion), moved into
    the note's first <notations> block, where the notation library looks; alternatives left out */
 function staffXML(xml){
@@ -4051,6 +4058,11 @@ async function loadPractice(p){
   const lt = p.id.startsWith("f:") ? readLocalTags(p.id) : null;   // tags that were waiting for the folder to be writable
   if (lt) { d.tags = lt.tags; d.tagsRejected = lt.rej || []; practice.dirty = true; }
   practice.data = d;
+  if (local && local.bpm && !d.bpm) d.bpm = local.bpm;
+  if (!p.ex && P && P.id === p.id && d.bpm >= BPM_MIN && d.bpm <= BPM_MAX) {
+    let have = null; try { have = JSON.parse(localStorage.getItem("solf-p-" + p.id) || "null"); } catch (e) {}
+    if (!(have && have.bpm) && S.bpm !== d.bpm) { S.bpm = Math.round(d.bpm / 2) * 2; syncUI(); }       // nothing remembered here: use the one in the practice file
+  }
   if (P && P.id === p.id) renderSections();
   if (practice.dirty) flushPractice();
 }
@@ -4068,7 +4080,7 @@ async function flushPractice(ask){
   }
   try {
     if (wrote) { localStorage.removeItem("pianissimo-practice-" + id); localStorage.removeItem(TAGSTORE(id)); }
-    else localStorage.setItem("pianissimo-practice-" + id, JSON.stringify({ sections: d.sections, log: d.log }));
+    else localStorage.setItem("pianissimo-practice-" + id, JSON.stringify({ sections: d.sections, log: d.log, bpm: d.bpm }));
   } catch (e) {}
   if (practice.id === id) practice.dirty = false;
   const meta = folderMetas.find(m => m.id === id); if (meta) { meta.saved = d.sections.length; renderLib(); }
@@ -4142,7 +4154,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261031T0938";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261031T1030";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
