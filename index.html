@@ -653,7 +653,7 @@ body.live-fing .fing-row{display:none!important}
       <span class="hand"><span class="sw l"></span>L
         <span class="seg" data-hand="l"><button type="button" data-v="1">On</button><button type="button" data-v="0.3">Soft</button><button type="button" data-v="0">Off</button></span></span>
       <span class="hand"><span class="label">Show</span>
-        <span class="seg" id="panels" aria-label="Panels to show"><button type="button" data-p="strip">Bars</button><button type="button" data-p="zoom">Zoom</button><button type="button" data-p="staff">Staff</button><button type="button" data-p="drops">Drop notes</button><button type="button" data-p="kb">Keyboard</button><button type="button" data-p="harm">Harmony</button></span></span>
+        <span class="seg" id="panels" aria-label="Panels to show"><button type="button" data-p="strip">Bars</button><button type="button" data-p="zoom">Zoom</button><button type="button" data-p="staff">Staff</button><button type="button" data-p="names">Names</button><button type="button" data-p="drops">Drop notes</button><button type="button" data-p="kb">Keyboard</button><button type="button" data-p="harm">Harmony</button></span></span>
     </div>
    </div>
     <div class="strip" id="stripBox" aria-label="The whole piece, bar by bar"><svg id="strip" preserveAspectRatio="none"></svg></div>
@@ -3639,7 +3639,7 @@ if (matchMedia("(pointer: fine)").matches && "webkitdirectory" in document.creat
    with a cursor on the step you're at.
    ===================================================================== */
 const bigScreen = Math.min(screen.width, screen.height) >= 600;
-const L = { strip: true, zoom: true, staff: bigScreen, drops: true, kb: true, staffH: 220, practice: bigScreen, tools: bigScreen, harm: false, hcol: false };
+const L = { names: false, strip: true, zoom: true, staff: bigScreen, drops: true, kb: true, staffH: 220, practice: bigScreen, tools: bigScreen, harm: false, hcol: false };
 try { Object.assign(L, JSON.parse(localStorage.getItem("pianissimo-layout") || "{}")); } catch (e) {}
 function saveLayout(){ try { localStorage.setItem("pianissimo-layout", JSON.stringify(L)); } catch (e) {} }
 function applyPanels(){
@@ -3656,6 +3656,7 @@ $("panels").addEventListener("click", e => {
   if (b.dataset.p === "harm" && typeof harmOn === "function") harmOn();
   layoutDrops();
   if (b.dataset.p === "staff" && L.staff) loadStaff();
+  if (b.dataset.p === "names") loadStaff(true);      // the notation is drawn again with names where the fingering was (and kept separately from the fingering drawing)
 });
 $("moreBtn").addEventListener("click", () => { L.tools = !L.tools; saveLayout(); applyPanels(); layoutDrops(); });
 (function splitDrag(){
@@ -3792,12 +3793,14 @@ async function loadStaff(force){
   await new Promise(r => setTimeout(r, 20));   // let "Drawing the score…" show first
   try {
     SW.h = h; SW.doc = null;
-    SW.key = `${hashStr(xml)}|${Math.round(h / 8)}|${Math.round(($("staffScroll").clientWidth || 0) / 200)}`;
-    SW.prep = () => { if (!SW.doc) SW.doc = new DOMParser().parseFromString(staffXML(xml), "application/xml"); };   // only needed to draw
+    SW.key = `${hashStr(xml)}|${Math.round(h / 8)}|${Math.round(($("staffScroll").clientWidth || 0) / 200)}${L.names ? "|names" : ""}`;
+    const names = !!L.names;
+    SW.prep = () => { if (!SW.doc) SW.doc = new DOMParser().parseFromString(names ? namesXML(xml) : staffXML(xml), "application/xml"); };   // only needed to draw
     const n = piece.src.bars.length, wins = [];
     for (let i0 = 0; ; i0 += SW_STEP) { const i1 = Math.min(n - 1, i0 + SW_BARS - 1); wins.push({ i0, i1 }); if (i1 >= n - 1) break; }
     SW.wins = wins; SW.z = 0;
-    let cached = null; try { cached = await localLib.getStaff(piece.id); } catch (e) {}
+    SW.cid = piece.id + (L.names ? "#names" : "");
+    let cached = null; try { cached = await localLib.getStaff(SW.cid); } catch (e) {}
     if (my !== staffBusy) return;
     if (cached && cached.key === SW.key && cached.wins.length === wins.length) { SW.wins = cached.wins; SW.z = cached.z; }
     const w = Math.max(0, swPick(here()));
@@ -3819,9 +3822,43 @@ function swBackground(my){
     if (my !== staffBusy || !SW.wins.length) return;
     if (playing || document.hidden) { swBackground(my); return; }      // wait for a quiet moment
     const w = SW.wins.findIndex(x => !x.svg);
-    if (w < 0) { try { await localLib.putStaff({ pid: SW.pid, key: SW.key, z: SW.z, wins: SW.wins }); } catch (e) {} return; }
+    if (w < 0) { try { await localLib.putStaff({ pid: SW.cid || SW.pid, key: SW.key, z: SW.z, wins: SW.wins }); } catch (e) {} return; }
     await swEnsure(w); swBackground(my);
   }, 150);
+}
+/* Note names instead of fingering on the notation (the Names switch): in the place where the finger number would be drawn,
+   each sounding note gets its letter (E♭, F♯…); in a chord only the lowest note gets one. Tied-on notes and grace notes
+   get none. The fingering is left out of this drawing; it is still on the keyboard and in the falling notes. */
+const NAME_ACC = { "-2": "𝄫", "-1": "♭", "0": "", "1": "♯", "2": "𝄪" };
+function namesXML(xml){
+  try {
+    const doc = new DOMParser().parseFromString(xml, "application/xml");
+    const notes = [...doc.getElementsByTagName("note")];
+    for (const el of notes) for (const nt of [...el.children].filter(c => c.nodeName === "notations")) for (const tech of [...nt.children].filter(c => c.nodeName === "technical"))
+      for (const fe of [...tech.children]) if (fe.nodeName === "fingering") fe.remove();
+    const PCS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+    for (let i = 0; i < notes.length; ) {
+      let j = i + 1; while (j < notes.length && kidEl(notes[j], "chord")) j++;
+      let low = null, lowMidi = 1e9;
+      for (let k = i; k < j; k++) {
+        const el = notes[k], pitch = kidEl(el, "pitch");
+        if (!pitch || kidEl(el, "grace") || kidEl(el, "cue") || kidEl(el, "rest")) continue;
+        if ([...el.children].some(c => c.nodeName === "tie" && c.getAttribute("type") === "stop")) continue;
+        const step = (kidEl(pitch, "step") || {}).textContent, alt = Math.round(+((kidEl(pitch, "alter") || {}).textContent || 0)), oct = +((kidEl(pitch, "octave") || {}).textContent);
+        if (PCS[step] === undefined || isNaN(oct)) continue;
+        const midi = 12 * (oct + 1) + PCS[step] + alt;
+        if (midi < lowMidi) { lowMidi = midi; low = { el, name: step + (NAME_ACC[String(alt)] ?? "") }; }
+      }
+      if (low) {
+        let nt = kidEl(low.el, "notations");
+        if (!nt) { nt = doc.createElement("notations"); const ly = kidEl(low.el, "lyric"); if (ly) low.el.insertBefore(nt, ly); else low.el.appendChild(nt); }
+        let tech = kidEl(nt, "technical"); if (!tech) { tech = doc.createElement("technical"); nt.appendChild(tech); }
+        const fe = doc.createElement("fingering"); fe.textContent = low.name; tech.appendChild(fe);
+      }
+      i = j;
+    }
+    return new XMLSerializer().serializeToString(doc);
+  } catch (e) { return xml; }
 }
 /* what the staff draws: the fingering in play (yours, the printed, or the suggestion), moved into
    the note's first <notations> block, where the notation library looks; alternatives left out */
@@ -4092,7 +4129,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261031T0837";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261031T0848";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -5677,7 +5714,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
   mv($("sect"), $("sPopTxt")); mv($("setStart"), $("sRow1")); mv($("setEnd"), $("sRow1")); mv($("whole"), $("sRow1"));
   mv($("secPick"), $("sRow2")); mv($("secSave"), $("sRow2")); mv($("secDrop"), $("sRow2"));
   mv($("countin").closest("label"), $("psCount")); mv($("click").closest("label"), $("psClick")); mv($("repSeg").parentElement, $("psRep"));
-  const pn = { strip: "Bars overview", zoom: "Bars close-up", staff: "Notation", drops: "Falling notes", harm: "Harmony", kb: "Keyboard" };
+  const pn = { strip: "Bars overview", zoom: "Bars close-up", staff: "Notation", names: "Note names on the notation", drops: "Falling notes", harm: "Harmony", kb: "Keyboard" };
   $("panels").querySelectorAll("button").forEach(b => { b.textContent = pn[b.dataset.p] || b.textContent; });
   mv($("panels"), $("psShow"));
   mv($("midiBtn"), $("psMidi")); mv($("outSeg").parentElement, $("psOut")); mv($("waitInfo"), $("psInfo")); mv($("midiNote"), $("psInfo"));
