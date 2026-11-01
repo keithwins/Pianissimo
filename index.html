@@ -356,7 +356,7 @@ body.practice.rot.flip .dock-in{padding-left:max(16px,env(safe-area-inset-bottom
    =================================================================== */
 .bar-tools>.row:not(.fing-row){display:none!important}
 #setPanel,#moreBtn,#exit{display:none!important}
-.ptop{display:flex;align-items:center;gap:8px;min-height:52px;flex:none;position:relative;z-index:50}      /* above the bars below it, so the menus that hang from it show */
+.ptop{display:flex;align-items:center;gap:8px;min-height:52px;flex:none}
 .ptitle{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;max-width:44%;background:none;border:0;padding:4px 10px 4px 2px;border-radius:12px;color:var(--fg);text-align:left;cursor:pointer;font:inherit}
 .ptitle:hover{background:var(--tint)}
 .pt-name{font-family:var(--font-display);font-weight:600;font-size:1.32rem;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -4213,7 +4213,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261101T1516";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261101T1541";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -5712,6 +5712,7 @@ function applyView(){
   const man = manual && !!P;              // with nothing open yet, show the library first
   const rot = man && !auto && innerHeight > innerWidth;
   cl.toggle("practice", auto || man);
+  if (!(auto || man)) { const sh = $("psheet"); if (sh) sh.hidden = true; if (typeof exPopShut === "function") exPopShut(); }     // a menu opened in the practice view doesn't wait for you in the library
   $("backPrac").hidden = !P;
   cl.toggle("manual", man && !auto);
   cl.toggle("rot", rot);
