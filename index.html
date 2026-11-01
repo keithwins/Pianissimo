@@ -145,7 +145,18 @@ input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--fg)}
 .ex-chips .chip{padding:4px 11px;font-size:.84rem}
 .ex-hint{font-family:var(--font-num);font-size:.84rem;color:var(--muted);padding-left:calc(4.8rem + 10px)}
 .ex-go{margin-top:2px}
-.exkey{display:inline-flex;align-items:center;gap:6px}
+.exkey{display:inline-flex;align-items:center;gap:6px;position:relative}
+#exCfg{max-width:15em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pop.ex-pop{top:calc(100% + 8px);bottom:auto;right:0;left:auto;width:min(310px,92vw);min-width:0;max-height:min(75vh,520px);overflow:auto;z-index:40;flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:10px 18px;padding:12px 14px}
+body.rot .pop.ex-pop{max-height:calc(100vw - 110px)}      /* turned sideways, the room below the bar is the screen's width */
+.ex-pop .pop-h,.ex-pop .ex-wide,.ex-pop .pop-hint{flex:0 0 100%}
+.ex-pop .pop-h{padding:0}.ex-pop .pop-hint{padding:0;margin-top:-4px}
+.ex-pop .ex-row{flex-direction:column;align-items:flex-start;gap:4px;min-height:0;padding:0;border:0}
+.ex-pop .te-lab{padding:0;min-width:0;font-size:.74rem;letter-spacing:.04em;text-transform:uppercase}
+.ex-pop .ex-chips{display:flex;flex-wrap:wrap;gap:5px}
+.ex-pop .chip{height:34px;padding:0 11px;font-size:.9rem}
+.ex-pop .ex-chips.keys .chip{min-width:38px;padding:0 6px;text-align:center}
+.ex-pop select{font:inherit;font-size:.92rem;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);max-width:100%}
 .exkey .exname{font:600 1rem var(--font-num);min-width:2.4em;text-align:center}
 .lib-tagedit input[type=text]{font:inherit;font-size:.92rem;padding:5px 9px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg);width:14rem;max-width:100%}
 
@@ -345,7 +356,7 @@ body.practice.rot.flip .dock-in{padding-left:max(16px,env(safe-area-inset-bottom
    =================================================================== */
 .bar-tools>.row:not(.fing-row){display:none!important}
 #setPanel,#moreBtn,#exit{display:none!important}
-.ptop{display:flex;align-items:center;gap:8px;min-height:52px;flex:none}
+.ptop{display:flex;align-items:center;gap:8px;min-height:52px;flex:none;position:relative;z-index:50}      /* above the bars below it, so the menus that hang from it show */
 .ptitle{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;max-width:44%;background:none;border:0;padding:4px 10px 4px 2px;border-radius:12px;color:var(--fg);text-align:left;cursor:pointer;font:inherit}
 .ptitle:hover{background:var(--tint)}
 .pt-name{font-family:var(--font-display);font-weight:600;font-size:1.32rem;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -596,7 +607,7 @@ body.live-fing .fing-row{display:none!important}
     <button class="ptitle" id="ptLib" type="button" aria-label="Open the library"><span class="pt-name" id="ptName">Pianissimo</span><span class="pt-sub js-status" id="ptStatus">Ready</span></button>
     <div class="ptime" id="ptTime" hidden aria-live="off"><svg id="ptTimeSvg" viewBox="0 0 132 28" aria-hidden="true"></svg><span id="ptTimeTxt"></span></div>
     <span class="grow"></span>
-    <div class="pt-slot" id="ptSlot"><span class="exkey" id="exKey" hidden><button class="chip" id="exBack" type="button" hidden>&larr; Piece</button><button class="chip" id="exPrev" type="button" aria-label="Previous key">‹</button><span class="exname" id="exKeyName" aria-live="polite"></span><button class="chip" id="exNext" type="button" aria-label="Next key">›</button></span></div>
+    <div class="pt-slot" id="ptSlot"><span class="exkey" id="exKey" hidden><button class="chip" id="exBack" type="button" hidden>&larr; Piece</button><button class="chip" id="exPrev" type="button" aria-label="Previous key">‹</button><span class="exname" id="exKeyName" aria-live="polite"></span><button class="chip" id="exNext" type="button" aria-label="Next key">›</button><button class="chip" id="exCfg" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Exercise settings"><span id="exCfgTxt"></span></button><div class="pop ex-pop" id="exPop" hidden></div></span></div>
     <button class="pbtn icon" id="setBtn" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
   </div>
    <div class="bar-tools">
@@ -2923,21 +2934,76 @@ function exStart(fid, q, from){
 /* the next or previous key, round the circle of fifths, keeping tempo and everything else */
 function exStep(d){
   if (!P || !P.ex) return;
-  const fam = exFam(P.ex.fid), i = EX_ORDER.indexOf(P.ex.q.tonic), q = { ...P.ex.q, tonic: EX_ORDER[(i + d + 12) % 12] }, bpm = S.bpm;
+  const i = EX_ORDER.indexOf(P.ex.q.tonic);
+  exRebuild({ ...P.ex.q, tonic: EX_ORDER[(i + d + 12) % 12] });
+}
+/* the open exercise, built again with other settings, keeping the tempo */
+function exRebuild(q){
+  if (!P || !P.ex) return;
+  const fam = exFam(P.ex.fid), bpm = S.bpm;
   exSave(fam, q);
-  let p; try { p = exMake(fam.id, q); } catch (e) { setStatus("Couldn't build that key"); return; }
+  let p; try { p = exMake(fam.id, q); } catch (e) { setStatus("Couldn't build that exercise"); return; }
   setPiece(p); S.bpm = bpm; save(); syncUI();
 }
 function exSync(){
   const on = !!(P && P.ex); $("exKey").hidden = !on;
-  if (on) $("exKeyName").textContent = EX_NAMES[exFam(P.ex.fid).mode][P.ex.q.tonic];
+  if (on) {
+    const fam = exFam(P.ex.fid), q = P.ex.q, pat = exPats(fam).find(x => x.id === q.pat) || exPats(fam)[0];
+    $("exKeyName").textContent = EX_NAMES[fam.mode][q.tonic];
+    $("exCfgTxt").textContent = EX_HANDS[q.hand].replace(" hand", "").replace(/^./, c => c.toUpperCase()) + " · " + (fam.kind === "path" ? q.oct + (q.oct > 1 ? " octaves" : " octave") : pat.name) + " ▾";
+    if (!$("exPop").hidden) exPopFill();
+  } else exPopShut();
   const back = $("exBack"); back.hidden = !(on && DRILLFROM);
   if (DRILLFROM) back.setAttribute("aria-label", "Back to " + DRILLFROM.title);
   $("drillBtn").hidden = !P || !!P.ex;
 }
+/* the settings menu beside the key stepper in the practice view */
+function exPopFill(){
+  const pop = $("exPop"), fam = exFam(P.ex.fid), q = P.ex.q; pop.textContent = "";
+  pop.append(mkEl("div", "pop-h", fam.name));
+  const ORDER = ["hand", "oct", "dir", "pat", "tonic"];      // hands and reach first, side by side; the key is also on the stepper
+  const rows = exRows(fam, q).sort((a, b) => ORDER.indexOf(a.key) - ORDER.indexOf(b.key));
+  for (const rw of rows) {
+    const r = mkEl("div", "ex-row" + (rw.wide || rw.select ? " ex-wide" : "")); r.append(mkEl("span", "te-lab", rw.label + (rw.unit ? " (" + rw.unit + ")" : "")));
+    if (rw.select) {
+      const sel = mkEl("select"); sel.setAttribute("aria-label", rw.label);
+      rw.items.forEach(([v, txt]) => { const o = mkEl("option", null, txt); o.value = v; if (q[rw.key] === v) o.selected = true; sel.append(o); });
+      sel.addEventListener("change", () => exRebuild({ ...P.ex.q, [rw.key]: sel.value })); r.append(sel);
+    } else {
+      const g = mkEl("div", "ex-chips" + (rw.keys ? " keys" : "")); g.setAttribute("role", "group"); g.setAttribute("aria-label", rw.label);
+      rw.items.forEach(([v, txt, short]) => { const b = mkEl("button", "chip", short || txt); b.type = "button"; b.setAttribute("aria-pressed", String(q[rw.key] === v)); if (short) b.setAttribute("aria-label", txt);
+        b.addEventListener("click", e => { e.stopPropagation(); exRebuild({ ...P.ex.q, [rw.key]: v }); }); g.append(b); });
+      r.append(g);
+    }
+    pop.append(r);
+    if (rw.hint) pop.append(mkEl("div", "pop-hint", rw.hint));
+  }
+}
+function exPopShut(){ const pop = $("exPop"); if (pop && !pop.hidden) { pop.hidden = true; $("exCfg").setAttribute("aria-expanded", "false"); } }
+$("exCfg").addEventListener("click", e => {
+  e.stopPropagation(); if (!P || !P.ex) return;
+  const open = $("exPop").hidden; document.body.click();          // (the other menus close on any click)
+  if (open) { exPopFill(); $("exPop").hidden = false; $("exCfg").setAttribute("aria-expanded", "true"); } else exPopShut();
+});
+$("exPop").addEventListener("click", e => e.stopPropagation());
+document.addEventListener("click", exPopShut);
+document.addEventListener("keydown", e => { if (e.key === "Escape") exPopShut(); });
 $("exPrev").addEventListener("click", () => exStep(-1));
 $("exNext").addEventListener("click", () => exStep(1));
 let exOpenId = null;
+/* what can be set for an exercise of this kind, in the order it is shown (the library sheet and the menu in the practice view both use this,
+   so a new kind of exercise, or a new option, is described once): rows of { key, label, items: [[value, text, short text]], hint? } */
+function exRows(fam, q){
+  const pats = exPats(fam), pat = pats.find(p => p.id === q.pat) || pats[0];
+  const rows = [
+    { key: "tonic", label: "Key", wide: true, keys: true, items: EX_NAMES[fam.mode].map((n, i) => [i, n]) },
+    { key: "hand", label: "Hands", items: [["r", "Right"], ["l", "Left"], ["b", "Both"]] },
+    { key: "pat", label: "Pattern", select: true, items: pats.map(p => [p.id, p.name]), hint: fam.kind === "path" ? pat.hint : "fingers: " + pat.f.join(" ") }
+  ];
+  if (fam.kind === "path") rows.push({ key: "oct", label: "Reach", items: [[1, "1 octave", "1"], [2, "2 octaves", "2"], [3, "3 octaves", "3"]], unit: "octaves" },
+                                     { key: "dir", label: "Direction", items: [["u", "Up"], ["ud", "Up and down"]] });
+  return rows;
+}
 function exSheet(e){
   const fam = exFam(e.fid), q = exParams(fam), box = mkEl("div", "lib-exsheet"), pats = exPats(fam);
   const set = (k, v) => { q[k] = v; exSave(fam, q); renderLib(); };
@@ -2946,15 +3012,8 @@ function exSheet(e){
     items.forEach(([v, txt]) => { const b = mkEl("button", "chip", txt); b.type = "button"; b.setAttribute("aria-pressed", String(cur === v)); b.addEventListener("click", () => set(key, v)); g.append(b); });
     r.append(g); return r;
   };
-  box.append(row("Key", EX_NAMES[fam.mode].map((n, i) => [i, n]), q.tonic, "tonic"));
-  box.append(row("Hands", [["r", "Right"], ["l", "Left"], ["b", "Both"]], q.hand, "hand"));
-  box.append(row("Pattern", pats.map(p => [p.id, p.name]), q.pat, "pat"));
   const pat = pats.find(p => p.id === q.pat) || pats[0];
-  box.append(mkEl("div", "ex-hint", fam.kind === "path" ? pat.hint : "fingers: " + pat.f.join(" ")));
-  if (fam.kind === "path") {
-    box.append(row("Reach", [[1, "1 octave"], [2, "2 octaves"], [3, "3 octaves"]], q.oct, "oct"));
-    box.append(row("Direction", [["u", "Up"], ["ud", "Up and down"]], q.dir, "dir"));
-  }
+  for (const rw of exRows(fam, q)) { box.append(row(rw.label, rw.items, q[rw.key], rw.key)); if (rw.hint) box.append(mkEl("div", "ex-hint", rw.hint)); }
   const go = mkEl("div", "ex-row ex-go"), start = mkEl("button", "tool", "Start");
   start.type = "button"; start.addEventListener("click", () => exStart(fam.id, q));
   go.append(start, mkEl("span", "g-hint", `${EX_NAMES[fam.mode][q.tonic]} ${fam.lower} · ${pat.name.toLowerCase()} · ${EX_HANDS[q.hand]}`));
@@ -4154,7 +4213,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261031T1030";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261101T1516";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
