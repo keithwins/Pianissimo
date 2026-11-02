@@ -128,6 +128,7 @@ input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--fg)}
   .chip,.tool,.seg button,.lib-del,.lib-tag,.lib-active .chip,.lf-tags .chip,.lib-tagedit .chip,.ex-chips .chip{min-height:44px;padding-top:8px;padding-bottom:8px;display:inline-flex;align-items:center;justify-content:center}
   .lib-del,.lib-tag{padding-left:14px;padding-right:14px}
   .dock .play,.dock .step,.play,.step{min-height:48px}
+  .ptop .sec-row .chip,.ptop .bars-in{min-height:44px;height:44px}
   select,.sec-pick,#libFilter,.lf-facets select,.lib-tagedit input[type=text],.bars-in{min-height:44px}
   .lib-item{min-height:56px;justify-content:center}
   .lib-tagedit .te-row{gap:8px}
@@ -279,7 +280,7 @@ body.fedit .dropf.sug,body.fedit .fing.sug{font-style:italic;opacity:.7}
 .sec-chips{display:flex;gap:6px;flex-wrap:wrap}
 .sec-chips .chip{padding:4px 10px}
 .bars-in{font:inherit;font-size:.87rem;padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--fg);width:9.5em}
-body:not(.practice) .strip.zoom,body:not(.practice) .sec-row,body.hide-strip .strip.zoom,body.hide-strip .sec-row,body.no-zoom .strip.zoom{display:none}
+body:not(.practice) .strip.zoom,body:not(.practice) .sec-row,body.hide-strip .strip.zoom,body.no-zoom .strip.zoom{display:none}
 .st-lab{position:absolute;top:1px;font:500 10px var(--font-num);color:var(--muted);pointer-events:none;padding-left:3px;font-variant-numeric:tabular-nums}
 
 /* staff: printed notation on paper, one long line that follows you */
@@ -361,6 +362,16 @@ body.practice.rot.flip .dock-in{padding-left:max(16px,env(safe-area-inset-bottom
 .ptitle:hover{background:var(--tint)}
 .pt-name{font-family:var(--font-display);font-weight:600;font-size:1.32rem;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .pt-sub{font-size:.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;min-height:1.1em}
+/* the sections selector lives in the top bar and is always on, whether or not the Bars strips are shown */
+.ptop .sec-row{flex:0 1 auto;flex-wrap:nowrap;min-width:0;gap:6px;margin-left:6px}
+.ptop .sec-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;min-width:0}
+.ptop .sec-chips::-webkit-scrollbar{display:none}
+.ptop .sec-row .chip{height:36px;border-radius:18px;padding:0 12px;white-space:nowrap;flex:none}
+.ptop .sec-row .chip[aria-pressed="true"]{background:var(--btn);color:var(--btn-fg);border-color:var(--btn)}
+.ptop .sec-row .chip i{font-style:normal;color:var(--muted);font-size:.8em;margin-left:5px}
+.ptop .sec-row .chip[aria-pressed="true"] i{color:inherit;opacity:.75}
+.ptop .bars-in{width:6.6em;height:36px;min-height:36px;padding:0 12px;flex:none}
+.sec-row.few .sec-chips{display:none}
 .ptop .grow{flex:1 1 auto}
 .pt-slot{display:flex;align-items:center;gap:6px}
 .pt-slot .chip{height:40px;border-radius:20px;padding:0 14px;font-size:.92rem}
@@ -466,6 +477,8 @@ body.rot .ptime svg{width:96px} body.rot .pbtn .q{display:inline}
   body:not(.rot) .pdock .dim,body:not(.rot) .pdock .hlab{display:none}
   body:not(.rot) .pd-sep{display:none}
   body:not(.rot) .ptime{display:none}
+  body:not(.rot) .ptop{flex-wrap:wrap}
+  body:not(.rot) .ptop .sec-row{order:9;flex:1 0 100%;margin-left:0}
 }
 /* the wish list is parked for now (its code stays; remove this line to bring it back) */
 #plWish{display:none!important}
@@ -606,6 +619,8 @@ body.live-fing .fing-row{display:none!important}
   <div class="ptop" id="ptop">
     <button class="ptitle" id="ptLib" type="button" aria-label="Open the library"><span class="pt-name" id="ptName">Pianissimo</span><span class="pt-sub js-status" id="ptStatus">Ready</span></button>
     <div class="ptime" id="ptTime" hidden aria-live="off"><svg id="ptTimeSvg" viewBox="0 0 132 28" aria-hidden="true"></svg><span id="ptTimeTxt"></span></div>
+    <div class="sec-row" id="secRow" role="group" aria-label="Choose a part or bars to practise"><button class="chip" id="secAll" type="button" title="The whole piece">All</button><span class="sec-chips" id="secChips"></span>
+      <input type="text" id="barsIn" class="bars-in" placeholder="Bars 5-8" aria-label="Choose bars by number, for example 5-8" autocomplete="off" enterkeyhint="go"></div>
     <span class="grow"></span>
     <div class="pt-slot" id="ptSlot"><span class="exkey" id="exKey" hidden><button class="chip" id="exBack" type="button" hidden>&larr; Piece</button><button class="chip" id="exPrev" type="button" aria-label="Previous key">‹</button><span class="exname" id="exKeyName" aria-live="polite"></span><button class="chip" id="exNext" type="button" aria-label="Next key">›</button><button class="chip" id="exCfg" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Exercise settings"><span id="exCfgTxt"></span></button><div class="pop ex-pop" id="exPop" hidden></div></span></div>
     <button class="pbtn icon" id="setBtn" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
@@ -672,8 +687,6 @@ body.live-fing .fing-row{display:none!important}
    </div>
     <div class="strip" id="stripBox" aria-label="The whole piece, bar by bar"><svg id="strip" preserveAspectRatio="none"></svg></div>
     <div class="strip zoom" id="zoomBox" aria-label="A few bars, magnified"><svg id="zoom" preserveAspectRatio="none"></svg></div>
-    <div class="sec-row" id="secRow"><span class="label">Sections</span><span class="sec-chips" id="secChips"></span>
-      <input type="text" id="barsIn" class="bars-in" placeholder="Bars, e.g. 5-8" aria-label="Choose bars by number" autocomplete="off"></div>
     <div class="staff-box" id="staffBox"><div class="staff-scroll" id="staffScroll"><div id="osmdHost"></div></div><div class="staff-msg" id="staffMsg"></div></div>
     <div class="split" id="split" role="separator" aria-label="Drag to resize the staff"></div>
     <div class="harm-bar" id="harmBar"><span class="harm-text" id="harmText"></span>
@@ -1743,20 +1756,29 @@ function selectBars(s, e, what){
   if (S.wait !== "off") enterWait(S.a);
   return true;
 }
+let secParts = [];   // the piece's parts as last drawn in the top bar, to show which one is selected
 async function renderSecRow(){
-  const row = $("secChips"); row.innerHTML = "";
+  const row = $("secChips"); row.innerHTML = ""; secParts = [];
   if (!P) return;
   const p = P; await barKeys(p); if (P !== p) return;
-  const segs = structure(p);
+  const segs = structure(p); secParts = segs;
   if (segs.length < 2) { $("secRow").classList.add("few"); }
   else $("secRow").classList.remove("few");
   segs.forEach(sg => {
-    const b = document.createElement("button"); b.type = "button"; b.className = "chip";
-    b.innerHTML = `<b>${sg.name}</b> ${esc(sg.from)}–${esc(sg.to)}${sg.rep ? " ↻" : ""}`;
+    const b = document.createElement("button"); b.type = "button"; b.className = "chip"; b.setAttribute("aria-pressed", "false");
+    b.innerHTML = `<b>${sg.name}</b><i>${esc(sg.from)}–${esc(sg.to)}${sg.rep ? " ↻" : ""}</i>`;
     b.title = `Bars ${sg.from}–${sg.to}${sg.rep ? ", repeated" : ""}`;
     b.addEventListener("click", () => withAudio(() => selectBars(sg.s, sg.e, `Section ${sg.name}`)));
     row.appendChild(b);
   });
+}
+$("secAll").addEventListener("click", () => $("whole").click());
+/* light the part (or All) that matches what is selected now */
+function markSecRow(){
+  if (!P || !ON.length) return;
+  const whole = S.a === 0 && S.b === ON.length - 1, a = srcBarAt(ON[S.a].st), b = srcBarAt(ON[S.b].st);
+  $("secAll").setAttribute("aria-pressed", String(whole));
+  [...$("secChips").children].forEach((c, i) => { const sg = secParts[i]; c.setAttribute("aria-pressed", String(!whole && !!sg && sg.s === a && sg.e === b)); });
 }
 $("barsIn").addEventListener("keydown", e => {
   if (e.key !== "Enter" || !P) return;
@@ -4213,7 +4235,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261101T1541";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261101T1925";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -5867,6 +5889,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
     set($("wBtn"), "hidden", $("midiRow").hidden && !lsAvail);
     set($("psKeysGrp"), "hidden", $("midiRow").hidden);
     set($("secVal"), "textContent", sectLabel());
+    markSecRow();
     if (window.pvDraw) pvDraw();
   }
   try { syncUI = (o => function(){ const r = o.apply(this, arguments); refresh(); return r; })(syncUI); } catch (e) {}
