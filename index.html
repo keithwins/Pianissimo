@@ -3683,7 +3683,7 @@ function showEmpty(){
   [stripAll, stripZoom].forEach(st => { st.svg.innerHTML = ""; st.labels.forEach(l => l.remove()); st.labels = []; st.outA = null; st.now = null; }); $("secChips").innerHTML = "";
   $("sect").textContent = "No piece open"; $("whole").hidden = true;
   setStatus("Open a piece from the library");
-  SW.pid = null; SW.wins = []; SW.cur = -1; staffBusy++; $("osmdHost").innerHTML = ""; osmd = null; staffClear("Open a piece to see its notation.");
+  SW.pid = null; SW.wins = []; SW.cur = -1; staffLast = null; staffBusy++; $("osmdHost").innerHTML = ""; osmd = null; staffClear("Open a piece to see its notation.");
   renderLib();
 }
 $("addFiles").addEventListener("change", e => { importFiles(e.target.files); e.target.value = ""; });
@@ -3778,7 +3778,9 @@ function loadOSMD(){
    moving along only swaps one drawing for the next. Windows not yet drawn are drawn in
    quiet moments (never while the music is playing, unless you get there first). */
 const SW = { pid: null, key: "", doc: null, piece: null, wins: [], cur: -1, z: 0, h: 0, bg: 0, ren: null, q: Promise.resolve() };
-const SW_BARS = 12, SW_STEP = 10;
+/* each drawing is 18 bars and "owns" the 8 in the middle, so wherever the staff changes from one drawing to the next
+   there are at least 5 bars drawn on both sides of the playing note, and the swap can be made without any visible move */
+const SW_BARS = 18, SW_STEP = 8, SW_PAD = 5;
 function hashStr(s){ let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36) + "-" + s.length; }
 /* bars i0..i1 of the score as a score of their own, carrying the clef, key, time and divisions in force */
 function sliceXML(doc, i0, i1){
@@ -3820,6 +3822,7 @@ async function swRender(w){
     drawTitle: false, drawSubtitle: false, drawComposer: false, drawLyricist: false, drawCredits: false,
     drawPartNames: false, drawPartAbbreviations: false, drawMetronomeMarks: false,
     cursorsOptions: [{ type: 0, color: "#1443c2", alpha: .32, follow: false }] });
+  try { const r = SW.ren.EngravingRules; r.RenderMeasureNumbers = true; r.MeasureNumberLabelOffset = 1; } catch (e) {}   // a number over every bar (the library's default is every second one)
   const o = SW.ren, key = SW.key;
   SW.prep();
   await o.load(sliceXML(SW.doc, win.i0, win.i1));
@@ -3844,13 +3847,12 @@ async function swRender(w){
   const copy = host.cloneNode(true); copy.querySelectorAll("img").forEach(i => i.remove());
   win.svg = copy.innerHTML; win.pos = pos;
 }
-/* which window shows written time st best: stay in the current one unless st reaches its last bar */
+/* which drawing shows written time st: the one with the most drawn on both sides of it; the current one is kept while
+   it still has 3 bars behind and 4 ahead, so stepping back and forth across a change doesn't flip between two */
 function swPick(st){
   const bi = srcBarAt(st), last = SW.wins.length - 1, cw = SW.wins[SW.cur];
-  if (cw && bi >= cw.i0 && (bi < cw.i1 || SW.cur === last) && bi <= cw.i1) return SW.cur;
-  let best = -1, m0 = -1;
-  SW.wins.forEach((w, i) => { if (bi >= w.i0 && bi <= w.i1) { const m = Math.min(bi - w.i0, i === last ? 99 : w.i1 - bi); if (m > m0) { m0 = m; best = i; } } });
-  return best;
+  if (cw && bi >= cw.i0 && bi <= cw.i1 && (SW.cur === 0 || bi >= cw.i0 + 3) && (SW.cur === last || bi <= cw.i1 - 4)) return SW.cur;
+  return Math.max(0, Math.min(last, Math.floor((bi - SW_PAD) / SW_STEP)));
 }
 function swShow(w){
   const win = SW.wins[w]; if (!win || !win.svg) return false;
@@ -3866,7 +3868,7 @@ async function loadStaff(force){
   const h = Math.max(70, $("staffBox").clientHeight - 6), here = () => (stepIdx >= 0 && ON[stepIdx] ? ON[stepIdx].st : ON[S.a].st);
   if (!force && SW.pid === P.id && SW.wins.length && Math.abs(h - SW.h) < 8) { staffAt(here()); return; }
   const piece = P, my = ++staffBusy;
-  SW.pid = P.id; SW.piece = piece; SW.wins = []; SW.cur = -1; SW.key = ""; staffPos = new Map(); osmd = null; $("osmdHost").innerHTML = "";
+  SW.pid = P.id; SW.piece = piece; SW.wins = []; SW.cur = -1; staffLast = null; SW.key = ""; staffPos = new Map(); osmd = null; $("osmdHost").innerHTML = "";
   clearTimeout(SW.bg);
   staffClear("Drawing the score…");
   let xml = null;
@@ -3882,7 +3884,7 @@ async function loadStaff(force){
   await new Promise(r => setTimeout(r, 20));   // let "Drawing the score…" show first
   try {
     SW.h = h; SW.doc = null;
-    SW.key = `${hashStr(xml)}|${Math.round(h / 8)}|${Math.round(($("staffScroll").clientWidth || 0) / 200)}${labelMode() === "f" ? "" : "|" + labelMode()}`;
+    SW.key = `w18|${hashStr(xml)}|${Math.round(h / 8)}|${Math.round(($("staffScroll").clientWidth || 0) / 200)}${labelMode() === "f" ? "" : "|" + labelMode()}`;
     const mode = labelMode(), fing = L.fing !== false, names = !!L.names;
     SW.prep = () => { if (!SW.doc) SW.doc = new DOMParser().parseFromString(mode === "f" ? staffXML(xml) : labelsXML(xml, fing, names), "application/xml"); };   // only needed to draw
     const n = piece.src.bars.length, wins = [];
@@ -3983,16 +3985,40 @@ function staffXML(xml){
     return new XMLSerializer().serializeToString(doc);
   } catch (e) { return xml; }
 }
+/* the staff follows the playing note: it keeps it a little left of the middle, and glides there rather than jumping */
+const STAFF_AT = .4;
+let staffLast = null;      // the note the staff was last put at: { t, x } (x = where it was on the screen)
+function staffGlide(to, instant){
+  const sc = $("staffScroll"); staffGlide.to = to;
+  if (instant || Math.abs(to - sc.scrollLeft) > sc.clientWidth * 1.5 || matchMedia("(prefers-reduced-motion: reduce)").matches) { sc.scrollLeft = to; return; }
+  if (staffGlide.raf) return;
+  let prev = performance.now();
+  const tick = now => {
+    const dt = Math.min(64, now - prev); prev = now;
+    const d = staffGlide.to - sc.scrollLeft;
+    if (Math.abs(d) < 3) { sc.scrollLeft = staffGlide.to; staffGlide.raf = 0; return; }
+    sc.scrollLeft += d * (1 - Math.exp(-dt / 110));
+    staffGlide.raf = requestAnimationFrame(tick);
+  };
+  staffGlide.raf = requestAnimationFrame(tick);
+}
 function staffAt(t){
   if (!SW.wins.length || !osmd) return;
   const w = swPick(t); if (w < 0) return;
   if (!SW.wins[w].svg) { const my = staffBusy; swEnsure(w).then(() => { if (my === staffBusy) staffAt(t); }); return; }
+  const sc = $("staffScroll"), swapping = SW.cur !== w, oldPos = staffPos;
+  const was = swapping && staffLast && oldPos.get(staffLast.t) ? oldPos.get(staffLast.t).x - sc.scrollLeft : null;   // where the previous note was on the screen
   swShow(w);
-  const pos = staffPos.get(Math.round(t * 1000) / 1000); if (!pos) return;
+  const key = Math.round(t * 1000) / 1000, pos = staffPos.get(key); if (!pos) return;
   const e = $("staffCur"); if (!e) return;
   e.style.left = pos.x + "px"; e.style.top = pos.y + "px"; e.style.height = (pos.h || 60) + "px"; e.style.width = Math.max(8, pos.w || 0) + "px";
-  const sc = $("staffScroll"), target = Math.max(0, pos.x - sc.clientWidth * .3);
-  if (Math.abs(sc.scrollLeft - target) > 2) sc.scrollLeft = target;
+  let instant = swapping && !staffLast;
+  if (swapping && staffLast) {
+    const same = staffPos.get(staffLast.t);      // the previous note in the new drawing: put it exactly where it was, so the change can't be seen
+    if (same && was != null) sc.scrollLeft = same.x - was; else instant = true;
+  }
+  staffGlide(Math.max(0, pos.x - sc.clientWidth * STAFF_AT), instant);
+  staffLast = { t: key };
 }
 addEventListener("resize", () => {
   clearTimeout(loadStaff.t);
@@ -4235,7 +4261,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261101T1925";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261101T1944";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
