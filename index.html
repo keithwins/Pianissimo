@@ -427,6 +427,19 @@ body.practice.rot.flip .dock-in{padding-left:max(16px,env(safe-area-inset-bottom
 .pop .sect{font-size:.92rem}
 .pop .sec-pick{max-width:100%}
 .pop-hint{font-size:.82rem;color:var(--muted);padding:0 4px}
+.pop-row[hidden]{display:none!important}
+#secMeta{flex-direction:column;align-items:stretch;gap:6px;border-top:1px solid var(--line);padding-top:8px}
+#secMeta .seg{display:flex;flex-wrap:wrap}
+#secMeta .te-lab{font-size:.76rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+/* practice lists */
+.ls-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ls-items{display:flex;flex-direction:column}
+.ls-it{display:flex;align-items:center;gap:6px;padding:8px 2px;border-top:1px solid var(--line)}
+.ls-it .nm{flex:1;min-width:0}
+.ls-it .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ls-it .s{font-size:.82rem;color:var(--muted)}
+#lrNext[hidden],#listsBtn[hidden]{display:none}
+#pdTrans #wBtn{margin-left:6px}
 .ls-box{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:8px}
 .ls-sens{display:flex;align-items:center;gap:10px;font-size:.88rem;color:var(--muted)}
 .ls-sens input{flex:1 1 120px;min-width:100px}
@@ -477,6 +490,7 @@ body.rot .ptime svg{width:96px} body.rot .pbtn .q{display:inline}
   body:not(.rot) .pdock .dim,body:not(.rot) .pdock .hlab{display:none}
   body:not(.rot) .pd-sep{display:none}
   body:not(.rot) .ptime{display:none}
+  body:not(.rot) #listsBtn{display:none}
   body:not(.rot) .ptop{flex-wrap:wrap}
   body:not(.rot) .ptop .sec-row{order:9;flex:1 0 100%;margin-left:0}
 }
@@ -623,6 +637,7 @@ body.live-fing .fing-row{display:none!important}
       <input type="text" id="barsIn" class="bars-in" placeholder="Bars 5-8" aria-label="Choose bars by number, for example 5-8" autocomplete="off" enterkeyhint="go"></div>
     <span class="grow"></span>
     <div class="pt-slot" id="ptSlot"><span class="exkey" id="exKey" hidden><button class="chip" id="exBack" type="button" hidden>&larr; Piece</button><button class="chip" id="exPrev" type="button" aria-label="Previous key">‹</button><span class="exname" id="exKeyName" aria-live="polite"></span><button class="chip" id="exNext" type="button" aria-label="Next key">›</button><button class="chip" id="exCfg" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Exercise settings"><span id="exCfgTxt"></span></button><div class="pop ex-pop" id="exPop" hidden></div></span></div>
+    <button class="chip" id="lrNext" type="button" hidden aria-label="Next item in the practice list">Next ›</button><button class="chip" id="listsBtn" type="button">Lists</button>
     <button class="pbtn icon" id="setBtn" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
   </div>
    <div class="bar-tools">
@@ -712,7 +727,11 @@ body.live-fing .fing-row{display:none!important}
             <line class="th" id="pvTh" x1="216" y1="0" x2="216" y2="48"/><g id="pvTicks"></g></svg></div>
         <div class="pop-hint">How loud Pia plays next to you. The keyboard's own knob sets the total.</div></div>
       <div class="pop" id="wPop" hidden><div class="pop-h">Wait for me</div></div>
-      <div class="pop" id="sPop" hidden><div class="pop-h">Section</div><div id="sPopTxt"></div><div class="pop-row" id="sRow1"></div><div class="pop-row" id="sRow2"></div><div class="pop-row" id="sRow3"><button class="chip" id="drillBtn" type="button" hidden>Drill this section</button></div><div class="pop-hint">Tap a note on the strip or in the falling notes, then Set start or Set end. A section can start and end on any note.</div></div>
+      <div class="pop" id="sPop" hidden><div class="pop-h">Section</div><div id="sPopTxt"></div><div class="pop-row" id="sRow1"></div><div class="pop-row" id="sRow2"></div><div class="pop-row" id="secMeta" hidden><span class="te-lab">This section</span>
+        <span class="seg" id="secStatus" aria-label="Status of this section"><button type="button" data-st="work">Working on it</button><button type="button" data-st="done">Mastered</button><button type="button" data-st="park">Parked</button></span>
+        <span class="seg" id="secHand" aria-label="Hand this section is for"><button type="button" data-sh="b">Both hands</button><button type="button" data-sh="r">Right</button><button type="button" data-sh="l">Left</button></span>
+        <div class="pop-hint" id="secStat"></div></div>
+      <div class="pop-row" id="sRow3"><button class="chip" id="drillBtn" type="button" hidden>Drill this section</button><button class="chip" id="leapBtn" type="button" hidden>Drill the hard moves</button><button class="chip" id="secToList" type="button">Add to a list</button></div><div class="pop-hint">Tap a note on the strip or in the falling notes, then Set start or Set end. A section can start and end on any note.</div></div>
     </div></div>
   </div>
   <div class="psheet" id="psheet" hidden>
@@ -721,6 +740,7 @@ body.live-fing .fing-row{display:none!important}
       <div class="ps-grp"><div class="ps-lab">Practice</div><div class="ps-box"><div class="ps-row" id="psCount"></div><div class="ps-row" id="psClick"></div><div class="ps-row" id="psRep"></div></div></div>
       <div class="ps-grp"><div class="ps-lab">Show</div><div class="ps-box"><div class="ps-row flush" id="psShow"></div></div></div>
       <div class="ps-grp" id="psKeysGrp"><div class="ps-lab">Keyboard and sound</div><div class="ps-box"><div class="ps-row" id="psMidi"></div><div class="ps-row" id="psOut"></div><div class="ps-row" id="psInfo"></div></div></div>
+      <div class="ps-grp"><div class="ps-lab">Practice lists</div><div class="ps-box"><div class="ps-row" id="psLists"></div></div></div>
       <div class="ps-grp"><div class="ps-lab">This piece</div><div class="ps-box"><div class="ps-row" id="psPiece"></div></div></div>
       <div class="ps-ver" id="psVer"></div>
     </div>
@@ -733,6 +753,25 @@ body.live-fing .fing-row{display:none!important}
     <p class="g-hint">Worked out from the notes by the player. Chord readings can be wrong in places, especially with fast passing notes.</p>
     <div id="thBody"></div>
     <div class="g-bar"><button class="tool" id="thCopy" type="button">Copy for Claude</button><span class="g-hint" id="thCopyNote">Copies these facts with a request, ready to paste into a chat with Claude for the story behind them.</span></div>
+  </div>
+</section>
+
+<section class="theory" id="leap" hidden aria-label="Drill the hard moves">
+  <div class="th-card">
+    <div class="g-top"><span class="g-title th-h">Hard moves</span><span class="g-key" id="lpTitle"></span><span class="grow"></span><button class="chip" id="lpClose" type="button">Close</button></div>
+    <p class="g-hint" id="lpWhy"></p>
+    <div class="lib-exsheet" id="lpRows"></div>
+    <div class="g-bar"><button class="tool" id="lpGo" type="button">Start this drill</button><button class="chip" id="lpAdd" type="button">Add to a list</button><span class="g-hint" id="lpLine"></span></div>
+  </div>
+</section>
+
+<section class="theory" id="lists" hidden aria-label="Practice lists">
+  <div class="th-card">
+    <div class="g-top"><span class="g-title th-h">Practice lists</span><span class="grow"></span><button class="chip" id="lsClose" type="button">Close</button></div>
+    <div class="ls-bar"><select id="lsPick" class="sec-pick" aria-label="Which list"></select><button class="chip" id="lsNew" type="button">New list</button><button class="chip" id="lsRename" type="button">Rename</button><button class="chip" id="lsDel" type="button">Delete list</button></div>
+    <div class="ls-items" id="lsItems"></div>
+    <div class="g-bar"><button class="tool" id="lsAddHere" type="button">Add what's open now</button><span class="g-hint" id="lsHere"></span></div>
+    <div class="g-bar"><span class="g-hint">Go through it:</span><button class="tool" id="lsPickBtn" type="button">Pick for me</button><button class="chip" id="lsOrder" type="button">In order</button><button class="chip" id="lsShuf" type="button">Shuffled</button><button class="chip" id="lsStop" type="button" hidden>Stop the list</button></div>
   </div>
 </section>
 
@@ -1454,6 +1493,8 @@ const tempos = document.querySelectorAll(".js-tempo"), bpmOuts = document.queryS
 tempos.forEach(t => { t.min = BPM_MIN; t.max = BPM_MAX; });
 
 let P = null, ON = [], BEATS = [], barOnsets = [];
+const LST = { d: { updated: 0, cur: "", lists: [] }, run: null };      // practice lists (see "Practice lists" below)
+try { const x = JSON.parse(localStorage.getItem("pianissimo-lists") || "null"); if (x && Array.isArray(x.lists)) LST.d = x; } catch (e) {}
 let DRILLFROM = null;      // set while an exercise was started from a piece with "Drill this": { id, title }, so the exercise can lead back
 /* Listen (microphone) state; the code that uses it is with Wait for me, below */
 const LS = { want: false, on: false, starting: false, sens: .5, stream: null, src: null, an: null, spec: null, wave: null, timer: 0, bins: null,
@@ -1996,7 +2037,7 @@ function setPiece(p){
   if (playing) stop();
   stopAuto(); waitK = -1; passes = 0; $("waitInfo").textContent = "";
   if (FE.piece && FE.piece !== p) feLeave();
-  if (!p.ex) DRILLFROM = null;           // a real piece is open again: nothing to go back to
+  if (!p.ex && !p.frag) DRILLFROM = null;           // a real piece is open again: nothing to go back to
   if (!p.src) { p.notes.forEach(n => { n.st = n.t; }); p.src = { bars: p.bars, notes: p.notes }; }
   P = p;
   if (P.src.notes.some(n => !(n.finger > 0))) { try { planFingering(P.src); } catch (e) {} }   // only if it couldn't be kept
@@ -2891,9 +2932,10 @@ function exNotes(fam, q){
 }
 
 /* a small MusicXML score: eighth notes in 4/4, right hand on the top staff, left hand on the bottom */
-function exXML(title, fam, seqs, fifths, bpm){
+function exXML(title, fam, seqs, fifths, bpm, lensGiven){
   const N = Math.max(seqs.r.length, seqs.l.length);
-  const lens = N <= 12 ? [N] : Array(Math.floor(N / 8)).fill(8).concat(N % 8 ? [N % 8] : []);      // bars of eight eighths; the last bar is as short as it needs to be, so there are no padding rests
+  const lens = lensGiven || (N <= 12 ? [N] : Array(Math.floor(N / 8)).fill(8).concat(N % 8 ? [N % 8] : []));
+  const starts = lens.map((_, i) => lens.slice(0, i).reduce((a, b) => a + b, 0));      // bars of eight eighths; the last bar is as short as it needs to be, so there are no padding rests
   const bars = lens.length;
   // each hand keeps to its own staff, but the clef follows the notes (as in printed scale books): a hand that climbs well above middle C reads in treble clef, and goes back to bass on the way down
   const CLEF = { G: '<sign>G</sign><line>2</line>', F: '<sign>F</sign><line>4</line>' };
@@ -2904,7 +2946,7 @@ function exXML(title, fam, seqs, fifths, bpm){
   let x = `<?xml version="1.0" encoding="UTF-8"?>\n<score-partwise version="3.1">\n<work><work-title>${esc(title)}</work-title></work>\n`
     + `<identification><creator type="composer">Exercise</creator></identification>\n<part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>\n<part id="P1">\n`;
   for (let b = 0; b < bars; b++) {
-    const len = lens[b], start = b * 8, timeXml = len === 8 ? `<time><beats>4</beats><beat-type>4</beat-type></time>` : `<time><beats>${len}</beats><beat-type>8</beat-type></time>`;
+    const len = lens[b], start = starts[b], timeXml = len === 8 ? `<time><beats>4</beats><beat-type>4</beat-type></time>` : `<time><beats>${len}</beats><beat-type>8</beat-type></time>`;
     x += `<measure number="${b + 1}">\n`;
     if (b === 0) x += `<attributes><divisions>2</divisions><key><fifths>${fifths}</fifths><mode>${fam.mode}</mode></key>${timeXml}<staves>2</staves>`
       + `<clef number="1">${CLEF[cur.r]}</clef><clef number="2">${CLEF[cur.l]}</clef></attributes>\n`
@@ -2968,16 +3010,17 @@ function exRebuild(q){
   setPiece(p); S.bpm = bpm; save(); syncUI();
 }
 function exSync(){
-  const on = !!(P && P.ex); $("exKey").hidden = !on;
+  const on = !!(P && P.ex), fr = !!(P && P.frag); $("exKey").hidden = !(on || fr);
+  ["exPrev", "exNext", "exCfg", "exKeyName"].forEach(id => { $(id).hidden = fr; });
   if (on) {
     const fam = exFam(P.ex.fid), q = P.ex.q, pat = exPats(fam).find(x => x.id === q.pat) || exPats(fam)[0];
     $("exKeyName").textContent = EX_NAMES[fam.mode][q.tonic];
     $("exCfgTxt").textContent = EX_HANDS[q.hand].replace(" hand", "").replace(/^./, c => c.toUpperCase()) + " · " + (fam.kind === "path" ? q.oct + (q.oct > 1 ? " octaves" : " octave") : pat.name) + " ▾";
     if (!$("exPop").hidden) exPopFill();
   } else exPopShut();
-  const back = $("exBack"); back.hidden = !(on && DRILLFROM);
+  const back = $("exBack"); back.hidden = !((on || fr) && DRILLFROM);
   if (DRILLFROM) back.setAttribute("aria-label", "Back to " + DRILLFROM.title);
-  $("drillBtn").hidden = !P || !!P.ex;
+  const plain = !!P && !P.ex && !P.frag; $("drillBtn").hidden = !plain; $("leapBtn").hidden = !plain;
 }
 /* the settings menu beside the key stepper in the practice view */
 function exPopFill(){
@@ -3089,7 +3132,7 @@ function drChordFit(notes){
   return best;
 }
 function drillGuess(){
-  if (!P || P.ex || !ON.length) return null;
+  if (!P || P.ex || P.frag || !ON.length) return null;
   const notes = []; for (let k = S.a; k <= S.b; k++) for (const n of ON[k].notes) notes.push(n);
   const N = notes.length; if (N < 3) return null;
   const nr = notes.filter(n => n.hand === "r").length;
@@ -3172,6 +3215,245 @@ $("drGo").addEventListener("click", () => {
   exStart(g.fid, { ...g.q }, from);
 });
 $("exBack").addEventListener("click", () => { const f = DRILLFROM; if (f) openPiece(f.id); });
+
+/* =====================================================================
+   The hard moves (261101)
+   Where a hand has to leave its position, found from the notes and the fingering, and drills made
+   from short fragments around each move. A move is a jump of a sixth or more, or a step wider than
+   the two fingers used can cover with the hand still (the same finger twice, or 2 then 5, and so on).
+   A drill is written out as a small score like the exercises, so the staff, falling notes, Wait for me
+   and the sections all work on it. Even eighths: it trains where the hand goes, not the rhythm.
+   ===================================================================== */
+const LEAP_REACH = [2, 4, 6, 9, 12];      // the widest interval (semitones) fingers 0, 1, 2, 3, 4 apart can cover with the hand still
+const LEAP_MAX = 48;                       // fragments in one drill, at most
+/* the notes one hand plays, one per step: the lowest of a chord for the left hand, the highest for the right */
+function handSeq(hand, a, b){
+  const out = [];
+  for (let k = a; k <= b; k++) {
+    const ns = ON[k].notes.filter(n => n.hand === hand); if (!ns.length) continue;
+    const n = hand === "l" ? ns.reduce((x, y) => y.midi < x.midi ? y : x) : ns.reduce((x, y) => y.midi > x.midi ? y : x);
+    out.push({ midi: n.midi, alter: n.alter || 0, finger: n.finger || 0, k });
+  }
+  return out;
+}
+function findLeaps(seq, hand){
+  const out = [];
+  for (let i = 0; i + 1 < seq.length; i++) {
+    const a = seq[i], b = seq[i + 1], d = Math.abs(b.midi - a.midi);
+    let leap = d >= 9;
+    if (!leap && a.finger && b.finger) {
+      const gap = Math.abs(a.finger - b.finger), up = b.midi > a.midi;
+      const natural = gap === 0 || (hand === "r" ? up === (b.finger > a.finger) : up === (b.finger < a.finger));   // fingers go the way the notes go (not a cross-over or cross-under)
+      leap = natural ? d > LEAP_REACH[gap] : d > 5;
+    }
+    if (leap) out.push(i);
+  }
+  return out;
+}
+/* every window of the chosen sizes that holds both notes of a move; the same fragment (same keys, same fingers) once only */
+function leapFragments(seq, leaps, sizes){
+  const seen = new Set(), out = [];
+  for (const i of leaps) for (const n of sizes) for (let s0 = i - (n - 2); s0 <= i; s0++) {
+    if (s0 < 0 || s0 + n > seq.length) continue;
+    const f = seq.slice(s0, s0 + n), key = f.map(x => x.midi + ":" + x.finger).join(",");
+    if (seen.has(key)) continue; seen.add(key); out.push({ notes: f, leap: i });
+  }
+  return out;
+}
+function leapPlan(hand, sizes){
+  const seq = handSeq(hand, S.a, S.b), leaps = findLeaps(seq, hand), all = leapFragments(seq, leaps, sizes);
+  return { seq, leaps, frags: all.slice(0, LEAP_MAX), cut: Math.max(0, all.length - LEAP_MAX) };
+}
+function pitchOf(n){
+  let al = n.alter || 0, nat = (((n.midi - al) % 12) + 12) % 12;
+  if (NAT[nat] === undefined) { al = 1; nat = (((n.midi - 1) % 12) + 12) % 12; }
+  return { step: NAT[nat], alter: al, oct: Math.floor((n.midi - al) / 12) - 1, finger: n.finger || 0, midi: n.midi };
+}
+function leapXML(title, frags, hand, reps, fifths, bpm){
+  const seq = [], lens = [];
+  for (const f of frags) for (let r = 0; r < reps; r++) { lens.push(f.notes.length); for (const n of f.notes) seq.push(pitchOf(n)); }
+  const seqs = { r: [], l: [] }; seqs[hand] = seq;
+  return exXML(title, { mode: "major" }, seqs, fifths, bpm, lens);
+}
+function secRef(){
+  const whole = S.a === 0 && S.b === ON.length - 1;
+  return { from: { st: ON[S.a].st, pass: passOf(S.a) }, to: { st: ON[S.b].st, pass: passOf(S.b) }, name: whole ? "Whole piece" : secName(S.a, S.b) };
+}
+function leapStart(rc){
+  if (!P || P.ex || P.frag) return;
+  const plan = leapPlan(rc.hand, rc.sizes);
+  if (!plan.frags.length) { setStatus("No hard moves found in that passage"); return; }
+  let fifths = 0; try { const kk = P.keys && P.keys[srcBarAt(ON[S.a].st)]; if (kk && Number.isInteger(kk.fifths)) fifths = kk.fifths; } catch (e) {}
+  const bpm = 60, ref = secRef(), title = `${P.title} · hard moves`;
+  const xml = leapXML(title, plan.frags, rc.hand, rc.reps, fifths, bpm);
+  let p; try { p = parseMusicXML(xml, title + ".musicxml"); } catch (e) { setStatus("Couldn't build that drill"); return; }
+  p.xml = xml; p.id = ["leap", P.id, ref.from.st, ref.to.st, rc.hand, rc.sizes.join(""), rc.reps].join("|");
+  p.defaultBpm = bpm;
+  p.frag = { hand: rc.hand, sizes: rc.sizes.slice(), reps: rc.reps, n: plan.frags.length, src: { id: P.id, title: P.title, from: ref.from, to: ref.to, name: ref.name } };
+  p.sub = ["Hard moves", EX_HANDS[rc.hand], `${plan.frags.length} fragments × ${rc.reps}`, ref.name].join(" · ");
+  p.facts = { meter: "", key: "", tempo: bpm, tempoGiven: true, shape: {} };
+  const i = secCur();        // a saved section remembers how it was last drilled
+  if (i >= 0) { practice.data.sections[i].drill = { hand: rc.hand, sizes: rc.sizes.slice(), reps: rc.reps }; practice.dirty = true; touchPractice(); }
+  save();
+  rec({ e: "leapdrill", from: P.id, a: S.a, b: S.b, hand: rc.hand, sizes: rc.sizes, reps: rc.reps, frags: plan.frags.length });
+  DRILLFROM = { id: P.id, title: P.title };
+  setPiece(p);
+  if (!document.body.classList.contains("practice") && P) $("land").click();
+}
+const LP = { hand: "l", sizes: [3, 4], reps: 3 };
+function leapOpen(){
+  if (!P || P.ex || P.frag || !ON.length) return;
+  const i = secCur(), saved = i >= 0 ? practice.data.sections[i].drill : null;
+  if (saved && saved.sizes && saved.sizes.length) { LP.hand = saved.hand === "r" ? "r" : "l"; LP.sizes = saved.sizes.slice(); LP.reps = saved.reps || 3; }
+  else {
+    const cr = findLeaps(handSeq("r", S.a, S.b), "r").length, cl = findLeaps(handSeq("l", S.a, S.b), "l").length;
+    LP.hand = cr > cl ? "r" : "l"; LP.sizes = [3, 4]; LP.reps = 3;
+  }
+  leapDraw(); $("leap").hidden = false;
+}
+function leapDraw(){
+  const rows = $("lpRows"); rows.innerHTML = "";
+  const chips = (label, items, isOn, onPick) => {
+    const r = mkEl("div", "ex-row"), c = mkEl("div", "ex-chips"); r.append(mkEl("span", "te-lab", label)); c.setAttribute("role", "group"); c.setAttribute("aria-label", label);
+    items.forEach(([v, txt]) => { const b = mkEl("button", "chip", txt); b.type = "button"; b.setAttribute("aria-pressed", String(isOn(v))); b.addEventListener("click", () => { onPick(v); leapDraw(); }); c.append(b); });
+    r.append(c); return r;
+  };
+  rows.append(chips("Hand", [["r", "Right"], ["l", "Left"]], v => LP.hand === v, v => { LP.hand = v; }));
+  rows.append(chips("Notes in a fragment", [2, 3, 4, 5].map(n => [n, String(n)]), v => LP.sizes.includes(v), v => {
+    const i = LP.sizes.indexOf(v);
+    if (i >= 0) { if (LP.sizes.length > 1) LP.sizes.splice(i, 1); } else { LP.sizes.push(v); LP.sizes.sort((a, b) => a - b); }
+  }));
+  rows.append(chips("Each one played", [2, 3, 4, 6, 8].map(n => [n, n + " times"]), v => LP.reps === v, v => { LP.reps = v; }));
+  const plan = leapPlan(LP.hand, LP.sizes), hand = EX_HANDS[LP.hand], hasF = plan.seq.some(n => n.finger);
+  $("lpTitle").textContent = P.title + " · " + drillSectionText();
+  const n = plan.leaps.length;
+  $("lpWhy").textContent = !plan.seq.length ? `There are no ${hand} notes in ${drillSectionText()}.`
+    : !n ? `No hard moves found in the ${hand}: nothing there leaves the hand's position. Try a longer passage, or the other hand.`
+    : `Found ${n} hard move${n === 1 ? "" : "s"} in the ${hand}, which make ${plan.frags.length} different short fragments` + (plan.cut ? ` (the first ${LEAP_MAX} are used)` : "") + ". "
+      + (hasF ? "A move is a jump of a sixth or more, or a step wider than the two fingers can reach with the hand still." : "This passage has no fingering yet, so moves are judged by size alone (a sixth or more).");
+  $("lpLine").textContent = plan.frags.length ? `${plan.frags.length * LP.reps} short bars, even eighth notes, starting at ♩ 60` : "";
+  $("lpGo").disabled = !plan.frags.length;
+}
+$("leapBtn").addEventListener("click", () => { $("sPop").hidden = true; leapOpen(); });
+$("lpClose").addEventListener("click", () => { $("leap").hidden = true; });
+$("lpGo").addEventListener("click", () => { $("leap").hidden = true; leapStart({ hand: LP.hand, sizes: LP.sizes.slice(), reps: LP.reps }); });
+$("lpAdd").addEventListener("click", () => { if (P && !P.ex && !P.frag) lstAdd({ k: "leap", pid: P.id, ptitle: P.title, ...secRef(), rc: { hand: LP.hand, sizes: LP.sizes.slice(), reps: LP.reps } }); });
+
+/* =====================================================================
+   Practice lists (261101)
+   A list is an ordered set of things to practise: a section of a piece, the hard-moves drill for
+   one, or an exercise. Each is a reference (nothing is copied), so changing a fingering or a section
+   changes it everywhere. A list is a pool, not a queue: go through it in order, shuffled, or let
+   "Pick for me" choose what needs work most (not mastered, not practised lately, few clean passes).
+   Kept in this browser and in the music folder's players file.
+   ===================================================================== */
+const lstCur = () => LST.d.lists.find(l => l.id === LST.d.cur) || LST.d.lists[0] || null;
+function lstEnsure(){ if (!LST.d.lists.length) { LST.d.lists.push({ id: "l" + Date.now().toString(36), name: "Practice", items: [] }); LST.d.cur = LST.d.lists[0].id; } if (!lstCur() || lstCur().id !== LST.d.cur) LST.d.cur = LST.d.lists[0].id; return lstCur(); }
+function lstSave(){ LST.d.updated = Date.now(); try { localStorage.setItem("pianissimo-lists", JSON.stringify(LST.d)); } catch (e) {} if (typeof profSave === "function") profSave(); }
+const lstTitle = it => it.k === "ex" ? it.title : it.ptitle + " · " + it.name + (it.k === "leap" ? " · hard moves" : "");
+const lstKey = it => it.k === "ex" ? ["ex", it.fid, JSON.stringify(it.q)].join("|") : [it.k, it.pid, it.from.st, it.from.pass, it.to.st, it.to.pass, it.k === "leap" ? JSON.stringify(it.rc) : ""].join("|");
+const snapOf = s => ({ status: s.status || "work", last: s.last || "", reps: s.reps || 0, clean: s.clean || 0, top: s.top || 0 });
+/* what is open now, as a list item */
+function lstHere(){
+  if (!P) return null;
+  if (P.ex) return { k: "ex", title: P.title, fid: P.ex.fid, q: { ...P.ex.q } };
+  if (P.frag) { const f = P.frag; return { k: "leap", pid: f.src.id, ptitle: f.src.title, from: f.src.from, to: f.src.to, name: f.src.name, rc: { hand: f.hand, sizes: f.sizes.slice(), reps: f.reps } }; }
+  return { k: "sec", pid: P.id, ptitle: P.title, ...secRef() };
+}
+function lstAdd(it){
+  const l = lstEnsure();
+  if (l.items.some(x => lstKey(x) === lstKey(it))) { setStatus(`Already in ${l.name}`); return false; }
+  if (it.pid && practice.data && practice.id === it.pid) { const sec = practice.data.sections.find(x => sameSection(x, it)); if (sec) it.snap = snapOf(sec); }
+  l.items.push(it); lstSave(); setStatus(`Added to ${l.name}`); if (!$("lists").hidden) lstDraw();
+  return true;
+}
+/* a saved section changed or was practised: the list items that point at it keep a copy of its tally, so "Pick for me" needs no files opened */
+function listSync(sec){
+  if (!practice.id) return; let ch = false;
+  for (const l of LST.d.lists) for (const it of l.items) if (it.pid === practice.id && it.from && sameSection(it, sec)) { it.snap = snapOf(sec); ch = true; }
+  if (ch) lstSave();
+}
+async function lstOpen(it){
+  $("lists").hidden = true;
+  if (it.k === "ex") { exStart(it.fid, { ...it.q }); return; }
+  if (!P || P.id !== it.pid || P.ex || P.frag) await openPiece(it.pid);
+  if (!P || P.id !== it.pid) { setStatus("Couldn't open " + it.ptitle); return; }
+  for (let n = 0; n < 30 && !(practice.data && practice.id === P.id); n++) await new Promise(r => setTimeout(r, 50));
+  const saved = practice.data && practice.data.sections.find(x => sameSection(x, it));
+  if (saved) { it.snap = snapOf(saved); lstSave(); }       // the list's copy of its tally is brought up to date whenever it is opened
+  if (!gotoSection({ from: it.from, to: it.to, bpm: saved && saved.bpm, name: it.name }, it.name)) return;
+  if (it.k === "leap") leapStart(it.rc);
+}
+function lstScore(it){
+  const sn = it.snap || {}, st = sn.status || "work";
+  if (st === "park") return -1;
+  const days = sn.last ? Math.max(0, (Date.now() - new Date(sn.last).getTime()) / 864e5) : 14;      // never practised counts as long ago
+  return (st === "done" ? .25 : 1) + Math.min(days, 14) / 14 + 1 / (1 + (sn.clean || 0)) + Math.random() * .4;
+}
+function lstStart(mode){
+  const l = lstCur(); if (!l || !l.items.length) { setStatus("Add something to this list first"); return; }
+  LST.run = { id: l.id, mode, idx: -1, seen: new Set() }; lstNextItem();
+}
+function lstNextItem(){
+  const r = LST.run, l = r && LST.d.lists.find(x => x.id === r.id);
+  if (!l || !l.items.length) { LST.run = null; lrSync(); return; }
+  const n = l.items.length; let i;
+  if (r.mode === "order") i = (r.idx + 1) % n;
+  else if (r.mode === "shuffle") {
+    if (r.seen.size >= n) r.seen.clear();
+    let pool = [...Array(n).keys()].filter(x => !r.seen.has(x) && !(n > 1 && x === r.idx)); if (!pool.length) pool = [...Array(n).keys()];
+    i = pool[Math.floor(Math.random() * pool.length)];
+  } else {
+    let bs = -Infinity; i = 0;
+    l.items.forEach((it, x) => { const sc = lstScore(it) - (n > 1 && x === r.idx ? 5 : 0); if (sc > bs) { bs = sc; i = x; } });
+  }
+  r.idx = i; r.seen.add(i); lrSync(); lstOpen(l.items[i]);
+}
+function lrSync(){
+  const r = LST.run, b = $("lrNext"); b.hidden = !r;
+  if (r) { b.textContent = (r.mode === "pick" ? "Pick next" : r.mode === "shuffle" ? "Shuffle next" : "Next") + " ›"; const l = LST.d.lists.find(x => x.id === r.id); b.title = l ? l.name : ""; }
+}
+function lstDraw(){
+  const l = lstEnsure(), pick = $("lsPick"); pick.innerHTML = "";
+  LST.d.lists.forEach(x => { const o = mkEl("option", "", `${x.name} (${x.items.length})`); o.value = x.id; pick.appendChild(o); }); pick.value = l.id;
+  const box = $("lsItems"); box.textContent = "";
+  if (!l.items.length) box.append(mkEl("p", "g-hint", "Nothing here yet. Open a section, a hard-moves drill or an exercise, then press Add what's open now."));
+  const mk = (txt, label, fn) => { const b = mkEl("button", "chip", txt); b.type = "button"; b.setAttribute("aria-label", label); b.addEventListener("click", fn); return b; };
+  l.items.forEach((it, i) => {
+    const row = mkEl("div", "ls-it"), nm = mkEl("div", "nm"), sn = it.snap;
+    nm.append(mkEl("div", "t", lstTitle(it)));
+    nm.append(mkEl("div", "s", it.k === "ex" ? "Exercise" : sn ? [SEC_ST[sn.status || "work"], sn.reps ? sn.reps + " passes" : "", sn.top ? "best ♩ " + sn.top : "", sn.last ? "last " + sn.last : ""].filter(Boolean).join(" · ") : "Not saved as a section yet"));
+    const move = d => () => { const j = i + d; if (j < 0 || j >= l.items.length) return; [l.items[i], l.items[j]] = [l.items[j], l.items[i]]; lstSave(); lstDraw(); };
+    row.append(nm,
+      mk("▶", "Practise this one", () => { LST.run = { id: l.id, mode: "order", idx: i, seen: new Set([i]) }; lrSync(); lstOpen(it); }),
+      mk("↑", "Move up", move(-1)), mk("↓", "Move down", move(1)),
+      mk("✕", "Take it off the list", () => { l.items.splice(i, 1); lstSave(); lstDraw(); }));
+    box.append(row);
+  });
+  const h = lstHere(); $("lsHere").textContent = h ? lstTitle(h) : "";
+  $("lsStop").hidden = !LST.run;
+}
+function lstOpenCard(){ lstEnsure(); lstDraw(); $("lists").hidden = false; }
+$("listsBtn").addEventListener("click", lstOpenCard);
+$("lsClose").addEventListener("click", () => { $("lists").hidden = true; });
+$("lsPick").addEventListener("change", () => { LST.d.cur = $("lsPick").value; lstSave(); lstDraw(); });
+$("lsNew").addEventListener("click", () => {
+  const n = (prompt("Name for the new list") || "").trim(); if (!n) return;
+  const l = { id: "l" + Date.now().toString(36), name: n.slice(0, 60), items: [] }; LST.d.lists.push(l); LST.d.cur = l.id; lstSave(); lstDraw();
+});
+$("lsRename").addEventListener("click", () => { const l = lstCur(); if (!l) return; const n = (prompt("New name", l.name) || "").trim(); if (!n) return; l.name = n.slice(0, 60); lstSave(); lstDraw(); });
+$("lsDel").addEventListener("click", () => {
+  const l = lstCur(); if (!l || !confirm(`Delete the list "${l.name}"? The pieces and sections stay.`)) return;
+  LST.d.lists = LST.d.lists.filter(x => x.id !== l.id); if (LST.run && LST.run.id === l.id) { LST.run = null; lrSync(); }
+  lstSave(); lstDraw();
+});
+$("lsAddHere").addEventListener("click", () => { const it = lstHere(); if (!it) { setStatus("Open a piece first"); return; } lstAdd(it); lstDraw(); });
+$("lsPickBtn").addEventListener("click", () => lstStart("pick"));
+$("lsOrder").addEventListener("click", () => lstStart("order"));
+$("lsShuf").addEventListener("click", () => lstStart("shuffle"));
+$("lsStop").addEventListener("click", () => { LST.run = null; lrSync(); lstDraw(); });
+$("lrNext").addEventListener("click", lstNextItem);
+$("secToList").addEventListener("click", () => { const it = lstHere(); if (it) lstAdd(it); });
 
 /* ---------- search, filters and tags ----------
    One quiet row on top: a search box and a Filter button. The filters (composer, era, key,
@@ -4110,7 +4392,7 @@ let profTimer = 0, profAt = 0;
 try { profAt = +localStorage.getItem("pianissimo-profile-at") || 0; } catch (e) {}
 function profData(){
   const g = Object.assign({}, G.s); delete g.cal;
-  return { pianissimo: 1, kind: "players", updated: profAt || Date.now(), players: PL.d.players, code: PL.d.code || "", games: g };
+  return { pianissimo: 1, kind: "players", updated: profAt || Date.now(), players: PL.d.players, code: PL.d.code || "", games: g, lists: LST.d };
 }
 function profSave(){
   profAt = Date.now(); try { localStorage.setItem("pianissimo-profile-at", String(profAt)); } catch (e) {}
@@ -4142,6 +4424,7 @@ async function profLoad(){
   if (newer) { PL.d.code = f.code || PL.d.code; G.s = Object.assign(G.s, f.games || {}, { cal: G.s.cal }); }
   if (PL.d.cur && !PL.d.players[PL.d.cur]) PL.d.cur = "";
   profAt = Math.max(profAt, f.updated || 0);
+  if (f.lists && Array.isArray(f.lists.lists) && (f.lists.updated || 0) > (LST.d.updated || 0)) { LST.d = f.lists; try { localStorage.setItem("pianissimo-lists", JSON.stringify(LST.d)); } catch (e) {} lrSync(); }
   try { localStorage.setItem("pianissimo-players", JSON.stringify(PL.d)); localStorage.setItem("pianissimo-games", JSON.stringify(G.s)); localStorage.setItem("pianissimo-profile-at", String(profAt)); } catch (e) {}
   if (typeof plRender === "function") plRender();
   if (!newer) profSave();
@@ -4211,17 +4494,52 @@ function renderSections(){
   const head = document.createElement("option"); head.value = ""; sel.appendChild(head);
   const list = (practice.data && practice.id === (P && P.id) && practice.data.sections) || [];
   head.textContent = list.length ? "Saved sections" : "No saved sections yet";
-  list.forEach((s, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = s.name + (s.bpm ? ` · ♩ ${s.bpm}` : ""); sel.appendChild(o); });
+  list.forEach((s, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = (SEC_MARK[s.status] || "") + s.name + (s.bpm ? ` · ♩ ${s.bpm}` : ""); sel.appendChild(o); });
   const cur = list.findIndex(s => { const a = stepAt(s.from.st, s.from.pass); return a === S.a && stepAt(s.to.st, s.to.pass, a) === S.b; });
   sel.value = cur >= 0 ? String(cur) : "";
   $("secDrop").hidden = cur < 0;
+  secMetaDraw();
+}
+/* what a saved section keeps beyond where it starts and ends: its status, which hand it is for, and a tally
+   (passes in Wait for me, clean ones, the tempo of the best clean pass, the last day, seconds of playing) */
+const SEC_ST = { work: "Working on it", done: "Mastered", park: "Parked" };
+const SEC_MARK = { work: "▸ ", done: "✓ ", park: "· " };
+function secCur(){
+  const list = (practice.data && P && practice.id === P.id && practice.data.sections) || [];
+  return list.findIndex(s => { const a = stepAt(s.from.st, s.from.pass); return a >= 0 && a === S.a && stepAt(s.to.st, s.to.pass, a) === S.b; });
+}
+function secMetaDraw(){
+  const i = secCur(), box = $("secMeta"); box.hidden = i < 0; if (i < 0) return;
+  const s = practice.data.sections[i];
+  box.querySelectorAll("[data-st]").forEach(b => b.setAttribute("aria-pressed", String((s.status || "work") === b.dataset.st)));
+  box.querySelectorAll("[data-sh]").forEach(b => b.setAttribute("aria-pressed", String((s.hand || "b") === b.dataset.sh)));
+  const bits = [];
+  if (s.reps) bits.push(`${s.reps} pass${s.reps === 1 ? "" : "es"} in Wait for me` + (s.clean ? `, ${s.clean} clean` : ""));
+  if (s.top) bits.push(`best clean pass ♩ ${s.top}`);
+  if (s.last) bits.push(`last ${s.last}`);
+  $("secStat").textContent = bits.join(" · ") || "Not practised here yet";
+}
+function secChanged(s){ practice.dirty = true; touchPractice(); listSync(s); renderSections(); }
+$("secStatus").addEventListener("click", e => { const b = e.target.closest("button"), i = secCur(); if (!b || i < 0) return; practice.data.sections[i].status = b.dataset.st; secChanged(practice.data.sections[i]); });
+$("secHand").addEventListener("click", e => { const b = e.target.closest("button"), i = secCur(); if (!b || i < 0) return; practice.data.sections[i].hand = b.dataset.sh; secChanged(practice.data.sections[i]); });
+/* go to a saved section (a place in the written score) */
+function gotoSection(sec, label){
+  const a = stepAt(sec.from.st, sec.from.pass), b = stepAt(sec.to.st, sec.to.pass, Math.max(0, a));
+  if (a < 0 || b < 0) { setStatus("That section doesn't fit this piece any more"); return false; }
+  if (playing) stop();
+  S.a = a; S.b = b; if (sec.bpm) S.bpm = sec.bpm; save(); syncUI();
+  stepIdx = -1; clearMarks(); stepIdx = S.a; mark(ON[S.a], Infinity); renderDrops();
+  setStatus(`${label || sec.name} at ♩ ${S.bpm}`);
+  if (S.wait !== "off") enterWait(S.a);
+  return true;
 }
 $("secSave").addEventListener("click", async () => {
   if (!P || !practice.data) return;
   const s = { name: secName(S.a, S.b), from: { st: ON[S.a].st, bar: P.bars[ON[S.a].bar].label, pass: passOf(S.a) },
-              to: { st: ON[S.b].st, bar: P.bars[ON[S.b].bar].label, pass: passOf(S.b) }, bpm: S.bpm, saved: localDay() };
+              to: { st: ON[S.b].st, bar: P.bars[ON[S.b].bar].label, pass: passOf(S.b) }, bpm: S.bpm, saved: localDay(), status: "work" };
   const list = practice.data.sections, at = list.findIndex(x => sameSection(x, s));
   if (at >= 0) list[at].bpm = S.bpm; else list.push(s);
+  listSync(at >= 0 ? list[at] : s);
   practice.dirty = true;
   const wrote = await flushPractice(true);
   renderSections();
@@ -4229,14 +4547,8 @@ $("secSave").addEventListener("click", async () => {
 });
 $("secPick").addEventListener("change", () => {
   const v = $("secPick").value; if (v === "" || !practice.data) { renderSections(); return; }
-  const s = practice.data.sections[+v]; if (!s) return;
-  const a = stepAt(s.from.st, s.from.pass), b = stepAt(s.to.st, s.to.pass, Math.max(0, a));
-  if (a < 0 || b < 0) { setStatus("That section doesn't fit this piece any more"); return; }
-  if (playing) stop();
-  S.a = a; S.b = b; if (s.bpm) S.bpm = s.bpm; save(); syncUI();
-  stepIdx = -1; clearMarks(); stepIdx = S.a; mark(ON[S.a], Infinity); renderDrops();
-  setStatus(`${s.name} at ♩ ${S.bpm}`);
-  if (S.wait !== "off") enterWait(S.a);
+  const sec = practice.data.sections[+v]; if (!sec) return;
+  gotoSection(sec);
 });
 $("secDrop").addEventListener("click", async () => {
   const v = $("secPick").value; if (v === "" || !practice.data) return;
@@ -4249,6 +4561,13 @@ function logPractice(entry){
   if (!practice.data || !P || practice.id !== P.id) return;
   practice.data.log.push({ at: localStamp(), ...entry,
     from: P.bars[ON[S.a].bar].label, to: P.bars[ON[S.b].bar].label, bpm: S.bpm });
+  const i = secCur();       // a saved section keeps a running tally of what is done in it
+  if (i >= 0) {
+    const sec = practice.data.sections[i];
+    if (entry.kind === "wait") { sec.reps = (sec.reps || 0) + 1; if (!entry.extra) { sec.clean = (sec.clean || 0) + 1; if (!sec.top || S.bpm > sec.top) sec.top = S.bpm; } }
+    else sec.secs = (sec.secs || 0) + (entry.seconds || 0);
+    sec.last = localDay(); listSync(sec); secMetaDraw();
+  }
   touchPractice();
 }
 
@@ -4261,7 +4580,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261101T1944";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261101T2246";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -5840,7 +6159,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
   const q = s => document.querySelector(s), mv = (el, to) => { if (el && to) to.appendChild(el); };
   mv($("flip"), $("ptSlot")); mv($("gamesBtn"), $("ptSlot")); mv($("plChip"), $("ptSlot"));
   const tr = $("pdTrans");
-  mv($("toStart"), tr); mv($("back"), tr); mv(q(".bar-tools .js-play"), tr); mv($("step"), tr);
+  mv($("toStart"), tr); mv($("back"), tr); mv(q(".bar-tools .js-play"), tr); mv($("step"), tr); mv($("wBtn"), tr);      // Wait for me is used together with Play, so it sits beside it
   mv(q(".bar-tools .tempo-mini"), $("tPop")); mv($("chips"), $("tPop"));
   const w = $("wait"); w.classList.add("vlist"); mv(w, $("wPop"));
   const wl = { off: "Off", r: "Right hand", l: "Left hand", both: "Both hands" };
@@ -5854,6 +6173,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
   mv($("midiBtn"), $("psMidi")); mv($("outSeg").parentElement, $("psOut")); mv($("waitInfo"), $("psInfo")); mv($("midiNote"), $("psInfo"));
   mv($("fingBtn"), $("psPiece")); mv($("liveFing"), $("psPiece")); mv($("explainBtn"), $("psPiece")); mv($("land"), $("psPiece"));
   mv($("verLine"), $("psVer"));
+  { const b = mkEl("button", "chip", "Open practice lists"); b.type = "button"; b.addEventListener("click", () => { $("psheet").hidden = true; lstOpenCard(); }); $("psLists").append(b); }
 
   /* menus: one open at a time; a tap elsewhere or Escape closes it */
   const pops = { tBtn: "tPop", pvBtn: "pPop", wBtn: "wPop", secBtn: "sPop" };
