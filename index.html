@@ -1551,6 +1551,7 @@ function beatsIn(t0, t1){
 }
 const endTOf = k => k + 1 < ON.length ? ON[k + 1].t : ON[k].t + Math.max(...ON[k].notes.map(n => n.d));
 const sectionEndT = () => endTOf(S.b);
+const closingOnce = () => !!(P && P.closing && !S.loop && S.a === 0 && S.b === ON.length - 2);      // playing the cycle once: the closing note follows
 /* Going round a section: a section that starts with a pickup bar normally starts round again at the pickup. But when the
    last bar already ends with a lead-in of the same kind (the same hands, filling the pickup's length, in a bar that is
    already full, as in the endings of Maple Leaf Rag), the pickup would sound twice, so the later times round start at
@@ -2046,6 +2047,7 @@ function setPiece(p){
   let ps = null; try { ps = JSON.parse(localStorage.getItem("solf-p-" + P.id) || "null"); } catch (e) {}
   S.a = ps && ps.a >= 0 && ps.a < ON.length ? ps.a : 0;
   S.b = ps && ps.b >= S.a && ps.b < ON.length ? ps.b : ON.length - 1;
+  if (P.closing && ON.length > 2 && S.a === 0 && S.b === ON.length - 1) S.b = ON.length - 2;     // an exercise opens on its cycle; the closing note is outside it
   let famBpm = 0; if (P.ex) { try { famBpm = +localStorage.getItem("solf-ex-bpm-" + P.ex.fid) || 0; } catch (e) {} }
   S.bpm = P.ex && famBpm ? famBpm : ps && ps.bpm ? ps.bpm : (P.defaultBpm || P.tempo);
   S.bpm = Math.max(BPM_MIN, Math.min(BPM_MAX, Math.round(S.bpm / 2) * 2));
@@ -2271,7 +2273,7 @@ function start(){
   let ks = stepIdx >= 0 && stepIdx < ON.length ? stepIdx : S.a;
   if (ks === S.b || ks === ON.length - 1) ks = S.a;          // parked on the last note: go round from the top
   if (S.loop && ks > S.b) ks = S.a;                          // parked after the section: with Loop on, play the section
-  const firstEnd = ks <= S.b ? S.b : ON.length - 1;
+  const firstEnd = ks <= S.b ? (closingOnce() ? ON.length - 1 : S.b) : ON.length - 1;
   play0 = { k: ks, end: firstEnd, base: ON[ks].t, len0: Math.max(endTOf(firstEnd) - ON[ks].t, 1e-3), loops: ks <= S.b };
   cursor = ks; segEnd = firstEnd; segOff = 0; segBase = ON[ks].t;
   endAt = null; visQ = []; clearMarks(); lastK = -1;
@@ -2571,8 +2573,8 @@ function carryOn(k){
       logPractice({ kind: "wait", hands: S.wait, seconds: Math.round(secs * 10) / 10, extra });
     }
     passT0 = 0; extra = 0; fullPass = true;
-    if (!S.loop) { finishWait(); return; }
-    n = S.a;
+    if (!S.loop) { if (!closingOnce()) { finishWait(); return; } }      // (Once on an exercise goes on to its closing note, and ends there)
+    else n = S.a;
   }
   if (mine(ON[n]).length) { setTarget(n); return; }
   const now = performance.now(), due = (chainAt || now) + gapAfter(k) * 60 / S.bpm * 1000;
@@ -2931,15 +2933,25 @@ function exNotes(fam, q){
   return { seqs, nm, fifths };
 }
 
+/* rests that fill k eighths of a bar from eighth number pos, kept on the beat where they can be */
+function restsXML(k, pos, staff){
+  let out = "";
+  while (k > 0) {
+    const d = pos % 2 ? 1 : pos % 8 === 0 && k >= 8 ? 8 : pos % 4 === 0 && k >= 4 ? 4 : k >= 2 ? 2 : 1, ty = { 8: "whole", 4: "half", 2: "quarter", 1: "eighth" }[d];
+    out += `<note><rest/><duration>${d}</duration><voice>${staff}</voice><type>${ty}</type><staff>${staff}</staff></note>\n`;
+    k -= d; pos += d;
+  }
+  return out;
+}
 /* a small MusicXML score: eighth notes in 4/4, right hand on the top staff, left hand on the bottom */
 function exXML(title, fam, seqs, fifths, bpm, lensGiven){
   const N = Math.max(seqs.r.length, seqs.l.length);
-  const lens = lensGiven || (N <= 12 ? [N] : Array(Math.floor(N / 8)).fill(8).concat(N % 8 ? [N % 8] : []));
+  const lens = lensGiven || Array(Math.max(1, Math.ceil(N / 8))).fill(8);      // 4/4 throughout; a last bar that isn't full is filled out with rests
   const starts = lens.map((_, i) => lens.slice(0, i).reduce((a, b) => a + b, 0));      // bars of eight eighths; the last bar is as short as it needs to be, so there are no padding rests
   const bars = lens.length;
   // each hand keeps to its own staff, but the clef follows the notes (as in printed scale books): a hand that climbs well above middle C reads in treble clef, and goes back to bass on the way down
   const CLEF = { G: '<sign>G</sign><line>2</line>', F: '<sign>F</sign><line>4</line>' };
-  const pickClef = (cur, grp) => { const lo = Math.min(...grp.map(n => n.midi)), hi = Math.max(...grp.map(n => n.midi)); return cur === "F" ? (lo >= 60 ? "G" : "F") : (hi <= 60 ? "F" : "G"); };
+  const pickClef = (cur, grp) => { const lo = Math.min(...grp.map(n => n.midi)), hi = Math.max(...grp.map(n => n.midi)); return cur === "F" ? (lo >= 61 ? "G" : "F") : (hi <= 59 ? "F" : "G"); };      // middle C itself stays in whichever clef the hand is already reading
   const cur = { r: "G", l: "F" };
   for (const h of ["r", "l"]) if (seqs[h].length) cur[h] = pickClef(h === "r" ? "G" : "F", seqs[h].slice(0, 4));
   const acc = { 2: "double-sharp", 1: "sharp", 0: "natural", "-1": "flat", "-2": "flat-flat" };
@@ -2967,6 +2979,7 @@ function exXML(title, fam, seqs, fifths, bpm, lensGiven){
           + (s.finger ? `<notations><technical><fingering>${s.finger}</fingering></technical></notations>` : "") + `</note>\n`;
         shown[key] = s.alter;
       });
+      if (chunk.length < len) x += restsXML(len - chunk.length, chunk.length, staff);
     });
     x += `</measure>\n`;
   }
@@ -2982,6 +2995,9 @@ function exMake(fid, q){
   const p = parseMusicXML(xml, title + ".musicxml");
   p.xml = xml; p.id = ["x", fam.id, q.tonic, q.hand, q.pat, q.oct, q.dir].join("|");
   p.defaultBpm = bpm; p.ex = { fid: fam.id, q: { ...q } };
+  /* a figure that ends on the note it began on (up and down a scale, a five-finger pattern that comes home) has a closing note: the cycle is everything before it, so going round doesn't play that note twice */
+  const own = [seqs.r, seqs.l].filter(a => a.length);
+  p.closing = own.length > 0 && own.every(a => a.length > 2 && a[a.length - 1].midi === a[0].midi);
   p.sub = ["Exercise", EX_HANDS[q.hand] + (q.hand === "b" ? (fam.kind === "fingers" ? ", mirrored" : ", an octave apart") : ""),
     fam.kind === "path" ? `${q.oct} octave${q.oct > 1 ? "s" : ""}, ${q.dir === "ud" ? "up and down" : "up"}` : "fingers fixed"].join(" · ");
   p.facts = { meter: "4/4", key: "", tempo: bpm, tempoGiven: true, shape: {} };
@@ -4580,7 +4596,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261101T2246";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261103T1108";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -6217,6 +6233,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
   function sectLabel(){
     if (!P || !ON.length) return "Section";
     if (S.a === 0 && S.b === ON.length - 1) return "Whole piece";
+    if (P.closing && S.a === 0 && S.b === ON.length - 2) return "The cycle";
     const a = P.bars[ON[S.a].bar].label, b = P.bars[ON[S.b].bar].label;
     return a === b ? "Bar " + a : `Bars ${a}–${b}`;
   }
