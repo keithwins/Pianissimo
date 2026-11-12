@@ -784,6 +784,16 @@ body.live-fing .fing-row{display:none!important}
   </div>
 </section>
 
+<style>
+.folder-nag{position:fixed;left:50%;top:calc(8px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+  max-width:min(94vw,640px);padding:8px 10px 8px 14px;background:var(--paper,#fff);color:var(--fg,#000);border:1px solid var(--warn,#b42318);border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.12);font-size:.92rem;line-height:1.35}
+.folder-nag b{font-weight:600}
+</style>
+<div class="folder-nag" id="folderNag" role="status" hidden>
+  <span><b>Your music folder isn't connected.</b> Practice is only being kept in this browser.</span>
+  <button class="chip" id="folderNagGo" type="button">Reconnect</button><button class="chip" id="folderNagLater" type="button">Later</button>
+</div>
+
 <section class="games" id="games" hidden aria-label="Games">
   <div class="g-top">
     <span class="g-title">Games</span>
@@ -3974,6 +3984,7 @@ let folderHandle = null, folderMetas = [], scanning = false, folderNeedsOK = fal
 const canPickFolder = typeof window.showDirectoryPicker === "function" && window.self === window.top;
 function folderUI(){
   $("folderPick").hidden = !canPickFolder || !!folderHandle;
+  if (typeof nagCheck === "function") nagCheck();
   $("folderAgain").hidden = !folderHandle || !(folderNeedsOK || folderPending);
   $("folderAgain").textContent = folderNeedsOK ? "Reconnect your folder" : "Let the player write to your folder";
   $("folderScan").hidden = !folderHandle || folderNeedsOK;
@@ -4075,6 +4086,27 @@ $("folderAgain").addEventListener("click", async () => {
   if (!folderNeedsOK) { scanFolder(); flushRec(true); } else setLibNote("The player still can't read the folder. Choose it again if it has moved.", true);
 });
 $("folderScan").addEventListener("click", async () => { if (folderPending) await canWriteFolder(true); scanFolder(); });
+
+/* ---------- the reconnect bar ----------
+   Chrome forgets a folder's permission between visits unless you chose "Allow on every visit". Until it's given again,
+   players, practice and session records are kept only in this browser. The library has its own button for this, but you
+   may go straight to practice, so a small bar shows on every screen. A page can only ask after a click, so it's a button. */
+let nagLater = false;
+async function nagCheck(){
+  const bar = $("folderNag"); if (!bar) return;
+  bar.hidden = nagLater || !folderHandle || await canWriteFolder(false);
+}
+$("folderNagGo").addEventListener("click", async () => {
+  if (!folderHandle) return;
+  let st = "denied";
+  try { st = await folderHandle.requestPermission({ mode: "readwrite" }); } catch (e) {}
+  folderNeedsOK = st !== "granted"; folderUI();
+  if (st === "granted") { scanFolder(); flushRec(true); profWrite(); flushPractice(); }
+  else setLibNote("The player still can't use the folder. If it has moved, choose it again in the library.", true);
+});
+$("folderNagLater").addEventListener("click", () => { nagLater = true; $("folderNag").hidden = true; });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") nagCheck(); });
+setInterval(nagCheck, 30000);
 
 /* the starter pieces ship inside this page, zipped; they go into the library like any other file */
 async function addStarter(){
@@ -4552,8 +4584,23 @@ function profSave(){
   profAt = Date.now(); try { localStorage.setItem("pianissimo-profile-at", String(profAt)); } catch (e) {}
   clearTimeout(profTimer); profTimer = setTimeout(profWrite, 1500);
 }
+/* once a day, before the first save, the players file as it stood is copied to Backups/Pianissimo_players_<yymmdd>.json;
+   the newest fourteen are kept */
+async function profBackup(){
+  const d = new Date(), day = String(d.getFullYear()).slice(2) + pad2(d.getMonth() + 1) + pad2(d.getDate());
+  if (profBackup.day === day) return;
+  let old = null; try { old = await (await (await folderHandle.getFileHandle(PROF)).getFile()).text(); } catch (e) {}
+  if (!old) { profBackup.day = day; return; }
+  const dir = await folderHandle.getDirectoryHandle("Backups", { create: true }), name = `Pianissimo_players_${day}.json`;
+  let have = false; try { await dir.getFileHandle(name); have = true; } catch (e) {}
+  if (!have) { const w = await (await dir.getFileHandle(name, { create: true })).createWritable(); await w.write(old); await w.close(); }
+  const all = []; for await (const [n] of dir.entries()) if (/^Pianissimo_players_\d{6}\.json$/.test(n)) all.push(n);
+  all.sort(); for (const n of all.slice(0, Math.max(0, all.length - 14))) { try { await dir.removeEntry(n); } catch (e) {} }
+  profBackup.day = day;
+}
 async function profWrite(){
-  if (!folderHandle || !(await canWriteFolder(false))) return;
+  if (!folderHandle || !(await canWriteFolder(false))) { nagCheck(); return; }
+  try { await profBackup(); } catch (e) {}
   try {
     const fh = await folderHandle.getFileHandle(PROF, { create: true });
     const w = await fh.createWritable(); await w.write(JSON.stringify(profData(), null, 2) + "\n"); await w.close();
@@ -4581,6 +4628,7 @@ async function profLoad(){
   if (f.lists && Array.isArray(f.lists.lists) && (f.lists.updated || 0) > (LST.d.updated || 0)) { LST.d = f.lists; try { localStorage.setItem("pianissimo-lists", JSON.stringify(LST.d)); } catch (e) {} lrSync(); }
   try { localStorage.setItem("pianissimo-players", JSON.stringify(PL.d)); localStorage.setItem("pianissimo-games", JSON.stringify(G.s)); localStorage.setItem("pianissimo-profile-at", String(profAt)); } catch (e) {}
   if (typeof plRender === "function") plRender();
+  if (typeof gLoadPlayer === "function") gLoadPlayer();
   if (!newer) profSave();
 }
 async function loadPractice(p){
@@ -4734,7 +4782,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261112T0927";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261112T0946";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -5544,11 +5592,11 @@ function plAct(a, w){
   else if (a === "del") { if (plNeedCode()) return; p.wish = p.wish.filter(x => x !== w); if (p.goal === w.id) p.goal = null; }
   plSave(); plRender();
 }
-$("plPick").addEventListener("change", e => { PL.d.cur = e.target.value; plSave(); plRender(); if (PL.d.cur) rec({ e: "player", name: PL.d.cur }); });
+$("plPick").addEventListener("change", e => { PL.d.cur = e.target.value; plSave(); plRender(); if (PL.d.cur) rec({ e: "player", name: PL.d.cur }); gPlayerChanged(); });
 $("plAdd").addEventListener("click", () => {
   const n = $("plNew").value.trim().slice(0, 40); if (!n) return;
   if (!PL.d.players[n]) PL.d.players[n] = { created: localDay(), minutes: 0, spent: 0, days: {}, wish: [], goal: null };
-  PL.d.cur = n; $("plNew").value = ""; plSave(); plRender(); rec({ e: "player", name: n });
+  PL.d.cur = n; $("plNew").value = ""; plSave(); plRender(); rec({ e: "player", name: n }); gPlayerChanged();
 });
 $("wAdd").addEventListener("click", () => {
   const p = plCur(); if (!p) return;
@@ -5597,7 +5645,25 @@ const G = { on: false, game: "glance", hand: "r", running: false, timers: [], to
 const G_DEFAULTS = { gl: { exp: 2000, len: 3, streak: 0, fails: 0 }, glChords: false, lmMode: "find", lmMark: true, cal: null, tol: 0, touchMode: "mix",
   keysBpm: 0, keysHear: true, keysShow: true, beat: "auto", drumCh: 10 };
 try { G.s = Object.assign(JSON.parse(JSON.stringify(G_DEFAULTS)), JSON.parse(localStorage.getItem("pianissimo-games") || "{}")); } catch (e) { G.s = JSON.parse(JSON.stringify(G_DEFAULTS)); }
-const gSave = () => { try { localStorage.setItem("pianissimo-games", JSON.stringify(G.s)); } catch (e) {} profSave(); };
+/* levels and progress belong to the player; sound and beat settings belong to this computer */
+const G_MINE = ["gl", "lm", "tol", "glChords", "lmMode", "lmMark", "touchMode", "keysBpm"];
+const gPick = () => JSON.parse(JSON.stringify(Object.fromEntries(G_MINE.filter(k => k in G.s).map(k => [k, G.s[k]]))));
+function gLoadPlayer(){
+  const pl = PL.d.cur && PL.d.players[PL.d.cur]; if (!pl) return;
+  if (!pl.games) {      // the first player to get levels keeps the ones this browser already had; anyone after starts fresh
+    if (!Object.values(PL.d.players).some(o => o && o.games)) { pl.games = gPick(); return; }
+    pl.games = JSON.parse(JSON.stringify(Object.fromEntries(G_MINE.filter(k => G_DEFAULTS[k] !== undefined).map(k => [k, G_DEFAULTS[k]]))));
+  }
+  for (const k of G_MINE) G.s[k] = JSON.parse(JSON.stringify(k in pl.games ? pl.games[k] : G_DEFAULTS[k] !== undefined ? G_DEFAULTS[k] : null));
+  if (!G.s.lm) delete G.s.lm;
+}
+const gSave = () => {
+  const pl = PL.d.cur && PL.d.players[PL.d.cur]; if (pl) pl.games = gPick();
+  try { localStorage.setItem("pianissimo-games", JSON.stringify(G.s)); localStorage.setItem("pianissimo-players", JSON.stringify(PL.d)); } catch (e) {}
+  profSave();
+};
+gLoadPlayer();
+function gPlayerChanged(){ const was = G.running; if (G.on) gStop(); gLoadPlayer(); if (G.on) { gSync(); gShowIntro(); if (was) gStart(); } }
 const later = (ms, fn) => { const id = setTimeout(() => { G.timers = G.timers.filter(x => x !== id); if (G.on) fn(); }, ms); G.timers.push(id); return id; };
 const gClearTimers = () => { G.timers.forEach(clearTimeout); G.timers = []; };
 const gMsg = (html, cls) => { const m = $("gMsg"); m.innerHTML = html || ""; m.className = "g-msg" + (cls ? " " + cls : ""); };
