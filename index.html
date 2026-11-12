@@ -787,7 +787,7 @@ body.live-fing .fing-row{display:none!important}
 <section class="games" id="games" hidden aria-label="Games">
   <div class="g-top">
     <span class="g-title">Games</span>
-    <span class="seg" id="gTabs" aria-label="Game"><button type="button" data-g="glance">Glance</button><button type="button" data-g="touch">Touch</button><button type="button" data-g="keys">Every key</button></span>
+    <span class="seg" id="gTabs" aria-label="Game"><button type="button" data-g="landmarks">Landmarks</button><button type="button" data-g="glance">Glance</button><button type="button" data-g="touch">Touch</button><button type="button" data-g="keys">Every key</button></span>
     <span class="hand"><span class="label">Hand</span><span class="seg" id="gHand"><button type="button" data-h="r">Right</button><button type="button" data-h="l">Left</button></span></span>
     <span class="g-key" id="gTitleKey"></span>
     <span class="grow"></span>
@@ -4596,7 +4596,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261103T1108";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261111T1909";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -5436,6 +5436,7 @@ plRender();
 /* =====================================================================
    Games
    Short rounds, built from the piece you have open where they can be:
+   Landmarks  one note on the staff, read from the clef's own line; play that key
    Glance  a handful of notes flashes on a staff; when it vanishes, play it
    Touch   how you strike the keys: hit a loudness, match one by ear, play
            a five-finger figure evenly, shape a swell
@@ -5455,7 +5456,7 @@ function loadVex(){
   return vexLoading;
 }
 const G = { on: false, game: "glance", hand: "r", running: false, timers: [], today: {}, s: {} };
-const G_DEFAULTS = { gl: { exp: 2000, len: 3, streak: 0, fails: 0 }, glChords: false, cal: null, tol: 0, touchMode: "mix",
+const G_DEFAULTS = { gl: { exp: 2000, len: 3, streak: 0, fails: 0 }, glChords: false, lmMode: "find", lmMark: true, cal: null, tol: 0, touchMode: "mix",
   keysBpm: 0, keysHear: true, keysShow: true, beat: "auto", drumCh: 10 };
 try { G.s = Object.assign(JSON.parse(JSON.stringify(G_DEFAULTS)), JSON.parse(localStorage.getItem("pianissimo-games") || "{}")); } catch (e) { G.s = JSON.parse(JSON.stringify(G_DEFAULTS)); }
 const gSave = () => { try { localStorage.setItem("pianissimo-games", JSON.stringify(G.s)); } catch (e) {} profSave(); };
@@ -6025,7 +6026,99 @@ const keysGame = {
   stop(){ this.cur = null; }
 };
 
-const GAMES = { glance, touch, keys: keysGame };
+/* ======================= Landmarks =======================
+   Reading a note from a landmark instead of counting lines every time. One note shows; you play that key.
+   It starts with three notes around the clef's own line (G in treble, F in bass) and brings in the next one out
+   when you are quick and sure. No ledger lines and no sharps or flats yet.
+   "Steps" keeps the note before on the staff in grey, so the new one is read as the same, a step or a skip from it.
+   Your time is kept but there is no clock to beat and nothing to fail: a wrong key shows the right one, and you play it to go on. */
+const LM_ORDER = { r: [67, 69, 65, 71, 64, 72, 74, 76, 77], l: [53, 52, 55, 50, 57, 48, 47, 45, 43] };   // landmark first, then outward, all on the staff
+const LM_LINE = { r: "the G line", l: "the F line" };
+const lmDia = m => Math.floor(m / 12) * 7 + "CDEFGAB".indexOf(NAT[((m % 12) + 12) % 12]);
+const lmGame = {
+  title: "Landmarks",
+  intro: "Read a note from a landmark instead of counting lines. One note shows: play that key. It starts with three notes around the clef's own line (G in treble, F in bass) and adds the next one out when you're quick and sure. No ledger lines yet, and no clock to beat.",
+  st(){ const s = G.s.lm || (G.s.lm = {}); return s[G.hand] || (s[G.hand] = { pool: 3, hist: [], notes: {}, best: 0 }); },
+  pool(){ return LM_ORDER[G.hand].slice(0, this.st().pool); },
+  level(){
+    const s = this.st(), t = s.hist.filter(h => h.ok).map(h => h.ms).sort((a, b) => a - b);
+    return `${s.pool} of ${LM_ORDER[G.hand].length} notes · typical ${t.length ? (t[t.length >> 1] / 1000).toFixed(1) + " s" : "–"}` + (s.best ? ` · your best ${(s.best / 1000).toFixed(1)} s` : "");
+  },
+  opts(){
+    const b = (v, t) => `<button type="button" data-m="${v}" aria-pressed="${G.s.lmMode === v}">${t}</button>`;
+    return `<span class="seg" id="lmMode">${b("find", "One note")}${b("steps", "Steps")}</span>
+      <label class="check"><input type="checkbox" id="lmMark"${G.s.lmMark ? " checked" : ""}>Mark the landmark key</label>
+      <span class="hand"><span class="label">Notes</span><span class="seg"><button type="button" id="lmLess" aria-label="Fewer notes">−</button><button type="button" id="lmMore" aria-label="More notes">+</button></span></span>
+      <span class="g-hint">${G.s.lmMode === "steps" ? "The grey note is the one before: is the new one the same, a step, or a skip?" : "Find it from " + LM_LINE[G.hand] + "."}</span>`;
+  },
+  bind(){
+    $("lmMode").onclick = e => { const b = e.target.closest("button"); if (!b || b.dataset.m === G.s.lmMode) return; G.s.lmMode = b.dataset.m; gSave(); this.prev = null; gSync(); };
+    $("lmMark").onchange = e => { G.s.lmMark = e.target.checked; gSave(); if (this.cur && !this.cur.done) this.marks(); };
+    const size = d => { const s = this.st(); s.pool = Math.max(2, Math.min(LM_ORDER[G.hand].length, s.pool + d)); s.hist = []; gSave(); gStats(); };
+    $("lmLess").onclick = () => size(-1); $("lmMore").onclick = () => size(1);
+  },
+  marks(){ gkClear(); if (G.hand === "r") gkBuild(48, 83); else gkBuild(36, 71);      // three octaves around the staff, middle C in view
+     if (G.s.lmMark) gkShow(LM_ORDER[G.hand][0], G.hand === "r" ? "hint-r" : "hint-l"); },
+  pick(){
+    const pool = this.pool(), s = this.st(), prev = this.prev, steps = G.s.lmMode === "steps";
+    let cand = pool;
+    if (steps && pool.includes(prev)) { const near = pool.filter(m => Math.abs(lmDia(m) - lmDia(prev)) <= 2); if (near.length > 1) cand = near; }
+    // more often: notes you miss or are slow on; in One note, rarely the same note twice running
+    const w = cand.map(m => {
+      const n = s.notes[m], miss = n && n.n ? 1 - n.ok / n.n : .5, slow = n && n.t.length ? Math.min(3, n.t.reduce((a, b) => a + b, 0) / n.t.length / 1500) : 1.5;
+      return (!steps && m === prev ? .2 : 1) * (1 + 2 * miss + slow);
+    });
+    let r = Math.random() * w.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < cand.length; i++) { r -= w[i]; if (r <= 0) return cand[i]; }
+    return cand[cand.length - 1];
+  },
+  async round(){
+    if (!G.running) return;
+    const m = this.pick(), ref = G.s.lmMode === "steps" && this.pool().includes(this.prev) ? this.prev : null;
+    const steps = (ref != null ? [{ m: [ref], alter: [0], d: 4, color: "#8c959f" }] : []).concat([{ m: [m], alter: [0], d: 4 }]);
+    const c = this.cur = { m, ref, t0: 0, miss: false, done: false, played: [] };
+    this.marks(); gMsg("");
+    await drawStaff($("gStage"), { clef: G.hand === "r" ? "treble" : "bass", fifths: 0, steps });
+    if (this.cur === c) c.t0 = performance.now();
+  },
+  how(c){
+    const a = c.ref != null ? c.ref : LM_ORDER[G.hand][0], d = lmDia(c.m) - lmDia(a), from = c.ref != null ? "the grey note" : LM_LINE[G.hand];
+    if (!d) return c.ref != null ? ", the same as the grey note" : `, on ${from} itself`;
+    const k = Math.abs(d), dir = d > 0 ? "up" : "down";
+    return `, ${k === 1 ? "a step" : k === 2 ? "a skip" : k + " steps"} ${dir} from ${from}`;
+  },
+  key(m, v, t){
+    const c = this.cur; if (!c || c.done || !c.t0) return;
+    c.played.push({ m, ms: Math.round(t - c.t0) });
+    if (m !== c.m) {
+      gkShow(m, "bad");
+      if (!c.miss) { c.miss = true; gkShow(c.m, G.hand === "r" ? "hint-r" : "hint-l"); gMsg(`That was ${spell(m, 0)}. This is ${spell(c.m, 0)}${this.how(c)}. Play it to go on.`, "bad"); }
+      return;
+    }
+    c.done = true; gkShow(m, "ok");
+    this.score(c, Math.round(t - c.t0));
+    later(c.miss ? 900 : 450, () => this.round());
+  },
+  score(c, ms){
+    const s = this.st(), n = s.notes[c.m] || (s.notes[c.m] = { n: 0, ok: 0, t: [] }), ok = !c.miss;
+    n.n++; if (ok) { n.ok++; n.t.push(ms); if (n.t.length > 6) n.t.shift(); }
+    s.hist.push({ ok, ms }); if (s.hist.length > 12) s.hist.shift();
+    let say = ok ? `Right · ${(ms / 1000).toFixed(1)} s` : "";
+    if (s.hist.length >= 12) {      // the last twelve: nearly all right, and typically quick, brings in the next note
+      const good = s.hist.filter(h => h.ok), t = good.map(h => h.ms).sort((a, b) => a - b), mid = t.length ? t[t.length >> 1] : Infinity;
+      if (good.length >= 11 && (!s.best || mid < s.best)) s.best = mid;
+      if (good.length >= 11 && mid <= 2500 && s.pool < LM_ORDER[G.hand].length) { s.pool++; s.hist = []; say = `New note: ${spell(LM_ORDER[G.hand][s.pool - 1], 0)}`; }
+    }
+    if (say) gMsg(say, "good");
+    gSave(); gCount(ok);
+    rec({ e: "round", game: "landmarks", hand: G.hand, mode: G.s.lmMode, ok, ms, want: c.m, ref: c.ref, pool: s.pool, played: c.played });
+    this.prev = c.m;
+  },
+  start(){ this.prev = null; this.round(); },
+  stop(){ this.cur = null; }
+};
+
+const GAMES = { landmarks: lmGame, glance, touch, keys: keysGame };
 
 /* ---------- the games view ---------- */
 function gSync(){
