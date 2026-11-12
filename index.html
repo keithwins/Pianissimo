@@ -2847,6 +2847,30 @@ const EX_FP = [
   { id: "threes",  name: "In threes",               f: [1, 2, 3, 2, 3, 4, 3, 4, 5, 5, 4, 3, 4, 3, 2, 3, 2, 1] },
   { id: "skip",    name: "Skip and fill",           f: [1, 3, 2, 4, 3, 5, 4, 5, 3, 4, 2, 3, 1, 2] }
 ];
+/* chord progressions, as Roman numerals over the key; each is played as a loop and comes home to the tonic at the end.
+   Upper case is a major chord, lower case minor, ° diminished. In minor, V and vii° take the raised seventh (harmonic minor); VII does not. */
+const EX_CP = {
+  major: [
+    { id: "I-V",       name: "I and V",                    rn: ["I", "V"] },
+    { id: "I-IV",      name: "I and IV",                   rn: ["I", "IV"] },
+    { id: "I-IV-V",    name: "I IV V",                     rn: ["I", "IV", "V"] },
+    { id: "I-IV-I-V",  name: "I IV I V",                   rn: ["I", "IV", "I", "V"] },
+    { id: "I-V-vi-IV", name: "I V vi IV (the four-chord song)", rn: ["I", "V", "vi", "IV"] },
+    { id: "I-vi-IV-V", name: "I vi IV V (fifties)",        rn: ["I", "vi", "IV", "V"] },
+    { id: "vi-IV-I-V", name: "vi IV I V",                  rn: ["vi", "IV", "I", "V"] },
+    { id: "ii-V-I",    name: "ii V I (jazz cadence)",      rn: ["ii", "V", "I"] },
+    { id: "canon",     name: "Pachelbel's Canon",          rn: ["I", "V", "vi", "iii", "IV", "I", "IV", "V"] },
+    { id: "blues",     name: "Twelve-bar blues",           rn: ["I", "I", "I", "I", "I", "I", "I", "I", "IV", "IV", "IV", "IV", "I", "I", "I", "I", "V", "V", "IV", "IV", "I", "I", "V", "V"] }
+  ],
+  minor: [
+    { id: "i-iv",       name: "i and iv",                  rn: ["i", "iv"] },
+    { id: "i-V",        name: "i and V",                   rn: ["i", "V"] },
+    { id: "i-iv-V",     name: "i iv V",                    rn: ["i", "iv", "V"] },
+    { id: "i-VI-III-VII", name: "i VI III VII",            rn: ["i", "VI", "III", "VII"] },
+    { id: "andalusian", name: "i VII VI V (Andalusian)",   rn: ["i", "VII", "VI", "V"] },
+    { id: "ii-V-i",     name: "ii° V i (minor cadence)",   rn: ["ii°", "V", "i"] }
+  ]
+};
 const EX_FAM = [
   { id: "major",     fing: "scale", name: "Major scale",              lower: "major scale",              mode: "major", kind: "path", iv: [0, 2, 4, 5, 7, 9, 11], lo: [0, 1, 2, 3, 4, 5, 6], fixed: ["scales", "scale runs"], blurb: "Any key, any pattern" },
   { id: "natminor",  fing: "scale", name: "Natural minor scale",      lower: "natural minor scale",      mode: "minor", kind: "path", iv: [0, 2, 3, 5, 7, 8, 10], lo: [0, 1, 2, 3, 4, 5, 6], fixed: ["scales", "scale runs"], blurb: "Any key, any pattern" },
@@ -2855,19 +2879,21 @@ const EX_FAM = [
   { id: "arpmaj", fing: "arp",    name: "Major arpeggio",           lower: "major arpeggio",           mode: "major", kind: "path", iv: [0, 4, 7],     lo: [0, 2, 4],    fixed: ["arpeggios"], blurb: "Broken chord, any key" },
   { id: "arpmin", fing: "arp",    name: "Minor arpeggio",           lower: "minor arpeggio",           mode: "minor", kind: "path", iv: [0, 3, 7],     lo: [0, 2, 4],    fixed: ["arpeggios"], blurb: "Broken chord, any key" },
   { id: "arpdom", fing: "arp",    name: "Dominant seventh arpeggio", lower: "dominant seventh arpeggio", mode: "major", kind: "path", iv: [0, 4, 7, 10], lo: [0, 2, 4, 6], fixed: ["arpeggios"], blurb: "Broken chord, any key" },
+  { id: "progmaj", name: "Chord progressions, major", lower: "major key progression", mode: "major", kind: "chords", iv: [0, 2, 4, 5, 7, 9, 11], fixed: ["chords", "progressions"], blurb: "Triads in any key, from two chords up" },
+  { id: "progmin", name: "Chord progressions, minor", lower: "minor key progression", mode: "minor", kind: "chords", iv: [0, 2, 3, 5, 7, 8, 10], fixed: ["chords", "progressions"], blurb: "Triads in any key, from two chords up" },
   { id: "fingmaj",   name: "Five-finger position, major", lower: "major five-finger position", mode: "major", kind: "fingers", iv: [0, 2, 4, 5, 7], lo: [0, 1, 2, 3, 4], fixed: ["finger independence", "five-finger"], blurb: "Hand stays put; the pattern is the fingers" },
   { id: "fingmin",   name: "Five-finger position, minor", lower: "minor five-finger position", mode: "minor", kind: "fingers", iv: [0, 2, 3, 5, 7], lo: [0, 1, 2, 3, 4], fixed: ["finger independence", "five-finger"], blurb: "Hand stays put; the pattern is the fingers" }
 ];
 const EX_ENTRIES = EX_FAM.map(f => ({ id: "x:" + f.id, fid: f.id, exercise: true, title: f.name, composer: "", sub: f.blurb, fixed: f.fixed }));
 const exFam = id => EX_FAM.find(f => f.id === id) || EX_FAM[0];
-const exPats = fam => fam.kind === "path" ? EX_PP : EX_FP;
+const exPats = fam => fam.kind === "path" ? EX_PP : fam.kind === "chords" ? EX_CP[fam.mode] : EX_FP;
 
 const EX_STORE = fid => "pianissimo-ex-" + fid;
 function exParams(fam){
   let s = {}; try { s = JSON.parse(localStorage.getItem(EX_STORE(fam.id)) || "{}") || {}; } catch (e) {}
   const pats = exPats(fam);
   return { tonic: Number.isInteger(s.tonic) && s.tonic >= 0 && s.tonic < 12 ? s.tonic : 0, hand: ["r", "l", "b"].includes(s.hand) ? s.hand : "r",
-    pat: pats.some(p => p.id === s.pat) ? s.pat : pats[0].id, oct: [1, 2, 3].includes(s.oct) ? s.oct : 2, dir: s.dir === "u" ? "u" : "ud" };
+    pat: pats.some(p => p.id === s.pat) ? s.pat : pats[0].id, oct: [1, 2, 3].includes(s.oct) ? s.oct : 2, dir: s.dir === "u" ? "u" : "ud", voi: s.voi === "root" ? "root" : "near" };
 }
 function exSave(fam, q){ try { localStorage.setItem(EX_STORE(fam.id), JSON.stringify(q)); } catch (e) {} }
 
@@ -2986,9 +3012,119 @@ function exXML(title, fam, seqs, fifths, bpm, lensGiven){
   return x + `</part>\n</score-partwise>\n`;
 }
 
+/* ---------- chord progressions ----------
+   Each chord is a triad built on its scale degree. "Move least" voices each chord in the inversion nearest the one before,
+   as pianists play progressions; "Root position" keeps the root at the bottom, which shows the shapes plainly but jumps.
+   Fingering is the usual: right hand 1 3 5 (1 2 5 when the root is on top), left hand 5 3 1 (5 2 1 when the fifth is at the bottom).
+   Both hands: chords in the right hand over the root in the left. Half notes, two chords a bar; home to the tonic at the end. */
+function exSpellIn(fam, tonic, midi, lo){
+  const nm = EX_NAMES[fam.mode][tonic], fifths = EX_FIFTHS[fam.mode][tonic], L = (EX_LET.indexOf(nm[0]) + lo) % 7;
+  const d = (((midi % 12) - EX_NATPC[L]) % 12 + 12) % 12, a = d > 6 ? d - 12 : d;
+  if (Math.abs(a) > 1) { const b = alterIn(midi, fifths); return { midi, step: NAT[(((midi - b) % 12) + 12) % 12] || "C", alter: b, oct: Math.floor((midi - b) / 12) - 1 }; }
+  return { midi, step: EX_LET[L], alter: a, oct: Math.floor((midi - a) / 12) - 1 };
+}
+/* the three tones of a chord: pitch class and letter offset from the tonic */
+function exTriad(fam, tonic, rn){
+  const core = rn.replace(/[°ø7]/g, ""), deg = ["I", "II", "III", "IV", "V", "VI", "VII"].indexOf(core.toUpperCase());
+  const iv = fam.iv.slice(); if (fam.mode === "minor" && (core === "V" || core === "vii")) iv[6] = 11;
+  return [deg, deg + 2, deg + 4].map(j => ({ pc: (tonic + iv[j % 7]) % 12, lo: j % 7 }));
+}
+/* every close-position stack of a triad whose bottom note lies in [lo, hi] */
+function exStacks(tones, lo, hi){
+  const out = [];
+  for (let inv = 0; inv < 3; inv++) for (let b = lo; b <= hi; b++) {
+    if (b % 12 !== tones[inv].pc) continue;
+    const ns = [{ m: b, t: tones[inv], inv }]; let at = b;
+    for (let k = 1; k < 3; k++) { const t = tones[(inv + k) % 3]; let m = at + 1; while (m % 12 !== t.pc) m++; ns.push({ m, t }); at = m; }
+    out.push({ inv, ns });
+  }
+  return out;
+}
+function exVoice(chords, lo, hi, home, mode){
+  let prev = null;
+  return chords.map(tones => {
+    const cands = exStacks(tones, lo, hi);
+    let best = null, bc = Infinity;
+    for (const c of cands) {
+      if (mode === "root" && c.inv) continue;
+      const ms = c.ns.map(n => n.m);
+      let cost = !prev ? Math.abs(ms[0] - home) + (c.inv ? 50 : 0)
+        : mode === "root" ? Math.abs(ms[0] - prev[0])
+        : ms.reduce((a, m, i) => a + Math.abs(m - prev[i]), 0) + (c.inv ? .1 : 0) + Math.abs(ms[0] - home) * .01;
+      if (cost < bc) { bc = cost; best = c; }
+    }
+    prev = best.ns.map(n => n.m);
+    return best;
+  });
+}
+function exChordName(fam, tonic, tones){
+  const r = exSpellIn(fam, tonic, 60 + tones[0].pc, tones[0].lo), th = (tones[1].pc - tones[0].pc + 12) % 12, fi = (tones[2].pc - tones[0].pc + 12) % 12;
+  const acc = { 1: "♯", "-1": "♭", 2: "𝄪", "-2": "𝄫", 0: "" }[r.alter];
+  return r.step + acc + (fi === 6 ? "°" : th === 3 ? "m" : "");
+}
+function exProgHint(fam, q){
+  const pat = exPats(fam).find(p => p.id === q.pat) || exPats(fam)[0], t = q.tonic;
+  const names = pat.rn.map(rn => exChordName(fam, t, exTriad(fam, t, rn))), home = exChordName(fam, t, exTriad(fam, t, fam.mode === "minor" ? "i" : "I"));
+  const shorten = a => a.filter((x, i) => pat.id !== "blues" || i % 2 === 0);      // the blues is written two chords a bar: name each bar once
+  return shorten(pat.rn).join(" ") + "  ·  " + shorten(names).join(" ") + ", then home to " + home;
+}
+function exChordMake(fam, q){
+  const pat = exPats(fam).find(p => p.id === q.pat) || exPats(fam)[0], t = q.tonic, nm = EX_NAMES[fam.mode][t], fifths = EX_FIFTHS[fam.mode][t];
+  const rns = pat.rn.concat([fam.mode === "minor" ? "i" : "I"]), triads = rns.map(rn => exTriad(fam, t, rn));
+  const fingR = c => c.inv === 1 ? [1, 2, 5] : [1, 3, 5], fingL = c => c.inv === 2 ? [5, 2, 1] : [5, 3, 1];
+  const mk = (c, f) => c.ns.map((n, i) => { const s = exSpellIn(fam, t, n.m, n.t.lo); s.finger = f[i]; return s; });
+  const seqs = { r: [], l: [] };
+  if (q.hand === "r" || q.hand === "b") seqs.r = exVoice(triads, 57, 72, 60 + t, q.voi).map(c => mk(c, fingR(c)));
+  if (q.hand === "l") seqs.l = exVoice(triads, 43, 57, 48 + t - (t >= 8 ? 12 : 0), q.voi).map(c => mk(c, fingL(c)));
+  if (q.hand === "b") { let at = null;      // the root, an octave or so below middle C, moving to the nearest one each time
+    seqs.l = triads.map(tn => { let m = 40 + ((tn[0].pc - 4 + 12) % 12);
+      if (at != null) for (let c = 38; c <= 55; c++) if (c % 12 === tn[0].pc && Math.abs(c - at) < Math.abs(m - at)) m = c;
+      at = m; const s = exSpellIn(fam, t, m, tn[0].lo); s.finger = 5; return [s]; }); }
+  const title = `${nm} ${fam.lower} · ${pat.name}`, bpm = 72;
+  const n = rns.length, loopEven = (n - 1) % 2 === 0;      // half notes, two a bar; the closing chord fills its bar when it starts one
+  const durs = rns.map((_, i) => i === n - 1 && loopEven ? 8 : 4), bars = []; let cur = [], fill = 0;
+  durs.forEach((d, i) => { cur.push(i); fill += d; if (fill >= 8) { bars.push(cur); cur = []; fill = 0; } }); if (cur.length) bars.push(cur);
+  const acc = { 2: "double-sharp", 1: "sharp", 0: "natural", "-1": "flat", "-2": "flat-flat" }, TY = { 4: "half", 8: "whole" };
+  let x = `<?xml version="1.0" encoding="UTF-8"?>\n<score-partwise version="3.1">\n<work><work-title>${esc(title)}</work-title></work>\n`
+    + `<identification><creator type="composer">Exercise</creator></identification>\n<part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>\n<part id="P1">\n`;
+  bars.forEach((idx, b) => {
+    x += `<measure number="${b + 1}">\n`;
+    if (b === 0) x += `<attributes><divisions>2</divisions><key><fifths>${fifths}</fifths><mode>${fam.mode}</mode></key><time><beats>4</beats><beat-type>4</beat-type></time><staves>2</staves>`
+      + `<clef number="1"><sign>G</sign><line>2</line></clef><clef number="2"><sign>F</sign><line>4</line></clef></attributes>\n`
+      + `<direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>${bpm}</per-minute></metronome></direction-type><sound tempo="${bpm}"/></direction>\n`;
+    [["r", 1], ["l", 2]].forEach(([h, staff]) => {
+      if (staff === 2) x += `<backup><duration>8</duration></backup>\n`;
+      if (!seqs[h].length) { x += `<note><rest measure="yes"/><duration>8</duration><voice>${staff}</voice><staff>${staff}</staff></note>\n`; return; }
+      const shown = {}; let used = 0;
+      idx.forEach(i => {
+        const d = durs[i];
+        seqs[h][i].forEach((s, k) => {
+          const L = EX_LET.indexOf(s.step), key = L + ":" + s.oct, was = key in shown ? shown[key] : exSig(L, fifths);
+          x += `<note>${k ? "<chord/>" : ""}<pitch><step>${s.step}</step>${s.alter ? `<alter>${s.alter}</alter>` : ""}<octave>${s.oct}</octave></pitch><duration>${d}</duration><voice>${staff}</voice><type>${TY[d]}</type>`
+            + (s.alter !== was ? `<accidental>${acc[s.alter]}</accidental>` : "") + `<staff>${staff}</staff>`
+            + `<notations><technical><fingering>${s.finger}</fingering></technical></notations></note>\n`;
+          shown[key] = s.alter;
+        });
+        used += d;
+      });
+      if (used < 8) x += restsXML(8 - used, used, staff);
+    });
+    x += `</measure>\n`;
+  });
+  x += `</part>\n</score-partwise>\n`;
+  const p = parseMusicXML(x, title + ".musicxml");
+  p.xml = x; p.id = ["x", fam.id, t, q.hand, pat.id, q.voi].join("|");
+  p.defaultBpm = bpm; p.ex = { fid: fam.id, q: { ...q } };
+  p.closing = true;      // the loop is everything before the last chord; Once ends on it
+  p.sub = ["Exercise", q.hand === "b" ? "both hands, chords over the root" : EX_HANDS[q.hand] + " chords", q.voi === "root" ? "root position" : "moving least"].join(" · ");
+  p.facts = { meter: "4/4", key: "", tempo: bpm, tempoGiven: true, shape: {} };
+  return p;
+}
+
 const EX_HANDS = { r: "right hand", l: "left hand", b: "both hands" };
 function exMake(fid, q){
   const fam = exFam(fid), pat = exPats(fam).find(p => p.id === q.pat) || exPats(fam)[0];
+  if (fam.kind === "chords") return exChordMake(fam, q);
   const { seqs, nm, fifths } = exNotes(fam, q);
   const title = `${nm} ${fam.lower}` + (pat.id === "plain" || pat.id === "updown" && fam.kind === "fingers" ? "" : " · " + pat.name.toLowerCase());
   const bpm = 80, xml = exXML(title, fam, seqs, fifths, bpm);
@@ -3031,7 +3167,7 @@ function exSync(){
   if (on) {
     const fam = exFam(P.ex.fid), q = P.ex.q, pat = exPats(fam).find(x => x.id === q.pat) || exPats(fam)[0];
     $("exKeyName").textContent = EX_NAMES[fam.mode][q.tonic];
-    $("exCfgTxt").textContent = EX_HANDS[q.hand].replace(" hand", "").replace(/^./, c => c.toUpperCase()) + " · " + (fam.kind === "path" ? q.oct + (q.oct > 1 ? " octaves" : " octave") : pat.name) + " ▾";
+    $("exCfgTxt").textContent = EX_HANDS[q.hand].replace(/ hands?$/, "").replace(/^./, c => c.toUpperCase()) + " · " + (fam.kind === "path" ? q.oct + (q.oct > 1 ? " octaves" : " octave") : pat.name) + " ▾";
     if (!$("exPop").hidden) exPopFill();
   } else exPopShut();
   const back = $("exBack"); back.hidden = !((on || fr) && DRILLFROM);
@@ -3042,7 +3178,7 @@ function exSync(){
 function exPopFill(){
   const pop = $("exPop"), fam = exFam(P.ex.fid), q = P.ex.q; pop.textContent = "";
   pop.append(mkEl("div", "pop-h", fam.name));
-  const ORDER = ["hand", "oct", "dir", "pat", "tonic"];      // hands and reach first, side by side; the key is also on the stepper
+  const ORDER = ["hand", "oct", "dir", "pat", "voi", "tonic"];      // hands and reach first, side by side; the key is also on the stepper
   const rows = exRows(fam, q).sort((a, b) => ORDER.indexOf(a.key) - ORDER.indexOf(b.key));
   for (const rw of rows) {
     const r = mkEl("div", "ex-row" + (rw.wide || rw.select ? " ex-wide" : "")); r.append(mkEl("span", "te-lab", rw.label + (rw.unit ? " (" + rw.unit + ")" : "")));
@@ -3079,8 +3215,10 @@ function exRows(fam, q){
   const rows = [
     { key: "tonic", label: "Key", wide: true, keys: true, items: EX_NAMES[fam.mode].map((n, i) => [i, n]) },
     { key: "hand", label: "Hands", items: [["r", "Right"], ["l", "Left"], ["b", "Both"]] },
-    { key: "pat", label: "Pattern", select: true, items: pats.map(p => [p.id, p.name]), hint: fam.kind === "path" ? pat.hint : "fingers: " + pat.f.join(" ") }
+    { key: "pat", label: fam.kind === "chords" ? "Progression" : "Pattern", select: true, items: pats.map(p => [p.id, p.name]), hint: fam.kind === "path" ? pat.hint : fam.kind === "chords" ? exProgHint(fam, q) : "fingers: " + pat.f.join(" ") }
   ];
+  if (fam.kind === "chords") rows.push({ key: "voi", label: "Voicing", items: [["near", "Move least"], ["root", "Root position"]],
+    hint: q.voi === "root" ? "Root at the bottom every time: the plain shapes, with jumps between them." : "Each chord in the shape nearest the one before, as pianists play them." });
   if (fam.kind === "path") rows.push({ key: "oct", label: "Reach", items: [[1, "1 octave", "1"], [2, "2 octaves", "2"], [3, "3 octaves", "3"]], unit: "octaves" },
                                      { key: "dir", label: "Direction", items: [["u", "Up"], ["ud", "Up and down"]] });
   return rows;
@@ -3097,7 +3235,7 @@ function exSheet(e){
   for (const rw of exRows(fam, q)) { box.append(row(rw.label, rw.items, q[rw.key], rw.key)); if (rw.hint) box.append(mkEl("div", "ex-hint", rw.hint)); }
   const go = mkEl("div", "ex-row ex-go"), start = mkEl("button", "tool", "Start");
   start.type = "button"; start.addEventListener("click", () => exStart(fam.id, q));
-  go.append(start, mkEl("span", "g-hint", `${EX_NAMES[fam.mode][q.tonic]} ${fam.lower} · ${pat.name.toLowerCase()} · ${EX_HANDS[q.hand]}`));
+  go.append(start, mkEl("span", "g-hint", `${EX_NAMES[fam.mode][q.tonic]} ${fam.lower} · ${fam.kind === "chords" ? pat.name : pat.name.toLowerCase()} · ${EX_HANDS[q.hand]}`));
   box.append(go);
   return box;
 }
@@ -4596,7 +4734,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261111T1909";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261112T0927";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
