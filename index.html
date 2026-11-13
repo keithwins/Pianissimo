@@ -1528,7 +1528,7 @@ const S = { bpm: 100, a: 0, b: 0, loop: true, countIn: true, click: false, hand:
 function save(){
   try {
     localStorage.setItem("solf-global", JSON.stringify({ loop: S.loop, countIn: S.countIn, click: S.click, hand: S.hand, out: S.out, repeats: S.repeats, pv: S.pv }));
-    if (P) localStorage.setItem("solf-p-" + P.id, JSON.stringify({ a: S.a, b: S.b, bpm: S.bpm }));
+    if (P) localStorage.setItem("solf-p-" + P.id, JSON.stringify({ a: S.a, b: S.b, bpm: S.bpm, ...(P.ex || P.frag ? {} : { tr: P.tr || 0 }) }));
     if (P && P.ex) localStorage.setItem("solf-ex-bpm-" + P.ex.fid, String(S.bpm));     // an exercise's working tempo belongs to its kind (scales, arpeggios…), so changing key keeps it
     else if (P && typeof practice !== "undefined" && practice.data && practice.id === P.id && practice.data.bpm !== S.bpm) { practice.data.bpm = S.bpm; touchPractice(); }   // and a piece's goes in its practice file, so it travels with the folder
   } catch (e) {}
@@ -3172,9 +3172,18 @@ function exRebuild(q){
   setPiece(p); S.bpm = bpm; save(); syncUI();
 }
 function exSync(){
-  const on = !!(P && P.ex), fr = !!(P && P.frag); $("exKey").hidden = !(on || fr);
+  const on = !!(P && P.ex), fr = !!(P && P.frag), pc = !!P && !on && !fr; $("exKey").hidden = !(on || fr || pc);
   ["exPrev", "exNext", "exCfg", "exKeyName"].forEach(id => { $(id).hidden = fr; });
-  if (on) {
+  $("exPrev").setAttribute("aria-label", pc ? "Down a half step" : "Previous key"); $("exNext").setAttribute("aria-label", pc ? "Up a half step" : "Next key");
+  $("exCfg").setAttribute("aria-label", pc ? "Key options" : "Exercise settings");
+  if (pc) {
+    const p = P;
+    if (p.keyName === undefined) { p.keyName = ""; getXML(p.orig || p).then(x => { p.keyName = trPlan(p.orig || p, x, p.tr || 0).name; if (P === p) exSync(); }).catch(() => {}); }
+    $("exKeyName").textContent = p.keyName || "Key";
+    $("exKeyName").title = p.tr ? `Moved ${Math.abs(p.tr)} half step${Math.abs(p.tr) > 1 ? "s" : ""} ${p.tr > 0 ? "up" : "down"} from the original` : "The original key";
+    $("exCfgTxt").textContent = p.tr ? "moved ▾" : "▾";
+    if (!$("exPop").hidden) trPopFill();
+  } else if (on) {
     const fam = exFam(P.ex.fid), q = P.ex.q, pat = exPats(fam).find(x => x.id === q.pat) || exPats(fam)[0];
     $("exKeyName").textContent = EX_NAMES[fam.mode][q.tonic];
     $("exCfgTxt").textContent = EX_HANDS[q.hand].replace(/ hands?$/, "").replace(/^./, c => c.toUpperCase()) + " · " + (fam.kind === "path" ? q.oct + (q.oct > 1 ? " octaves" : " octave") : pat.name) + " ▾";
@@ -3208,15 +3217,15 @@ function exPopFill(){
 }
 function exPopShut(){ const pop = $("exPop"); if (pop && !pop.hidden) { pop.hidden = true; $("exCfg").setAttribute("aria-expanded", "false"); } }
 $("exCfg").addEventListener("click", e => {
-  e.stopPropagation(); if (!P || !P.ex) return;
+  e.stopPropagation(); if (!P || P.frag) return;
   const open = $("exPop").hidden; document.body.click();          // (the other menus close on any click)
-  if (open) { exPopFill(); $("exPop").hidden = false; $("exCfg").setAttribute("aria-expanded", "true"); } else exPopShut();
+  if (open) { if (P.ex) exPopFill(); else trPopFill(); $("exPop").hidden = false; $("exCfg").setAttribute("aria-expanded", "true"); } else exPopShut();
 });
 $("exPop").addEventListener("click", e => e.stopPropagation());
 document.addEventListener("click", exPopShut);
 document.addEventListener("keydown", e => { if (e.key === "Escape") exPopShut(); });
-$("exPrev").addEventListener("click", () => exStep(-1));
-$("exNext").addEventListener("click", () => exStep(1));
+$("exPrev").addEventListener("click", () => P && P.ex ? exStep(-1) : trSet((P && P.tr || 0) - 1));
+$("exNext").addEventListener("click", () => P && P.ex ? exStep(1) : trSet((P && P.tr || 0) + 1));
 let exOpenId = null;
 /* what can be set for an exercise of this kind, in the order it is shown (the library sheet and the menu in the practice view both use this,
    so a new kind of exercise, or a new option, is described once): rows of { key, label, items: [[value, text, short text]], hint? } */
@@ -3514,15 +3523,15 @@ $("lpAdd").addEventListener("click", () => { if (P && !P.ex && !P.frag) lstAdd({
 const lstCur = () => LST.d.lists.find(l => l.id === LST.d.cur) || LST.d.lists[0] || null;
 function lstEnsure(){ if (!LST.d.lists.length) { LST.d.lists.push({ id: "l" + Date.now().toString(36), name: "Practice", items: [] }); LST.d.cur = LST.d.lists[0].id; } if (!lstCur() || lstCur().id !== LST.d.cur) LST.d.cur = LST.d.lists[0].id; return lstCur(); }
 function lstSave(){ LST.d.updated = Date.now(); try { localStorage.setItem("pianissimo-lists", JSON.stringify(LST.d)); } catch (e) {} if (typeof profSave === "function") profSave(); }
-const lstTitle = it => it.k === "ex" ? it.title : it.ptitle + " · " + it.name + (it.k === "leap" ? " · hard moves" : "");
-const lstKey = it => it.k === "ex" ? ["ex", it.fid, JSON.stringify(it.q)].join("|") : [it.k, it.pid, it.from.st, it.from.pass, it.to.st, it.to.pass, it.k === "leap" ? JSON.stringify(it.rc) : ""].join("|");
+const lstTitle = it => it.k === "ex" ? it.title : it.ptitle + " · " + it.name + (it.k === "leap" ? " · hard moves" : "") + (it.tr ? " · in " + it.key : "");
+const lstKey = it => it.k === "ex" ? ["ex", it.fid, JSON.stringify(it.q)].join("|") : [it.k, it.pid, it.from.st, it.from.pass, it.to.st, it.to.pass, it.k === "leap" ? JSON.stringify(it.rc) : ""].join("|") + (it.tr ? "|tr" + it.tr : "");
 const snapOf = s => ({ status: s.status || "work", last: s.last || "", reps: s.reps || 0, clean: s.clean || 0, top: s.top || 0 });
 /* what is open now, as a list item */
 function lstHere(){
   if (!P) return null;
   if (P.ex) return { k: "ex", title: P.title, fid: P.ex.fid, q: { ...P.ex.q } };
   if (P.frag) { const f = P.frag; return { k: "leap", pid: f.src.id, ptitle: f.src.title, from: f.src.from, to: f.src.to, name: f.src.name, rc: { hand: f.hand, sizes: f.sizes.slice(), reps: f.reps } }; }
-  return { k: "sec", pid: P.id, ptitle: P.title, ...secRef() };
+  return { k: "sec", pid: P.id, ptitle: P.title, ...secRef(), ...(P.tr ? { tr: P.tr, key: P.trName } : {}) };
 }
 function lstAdd(it){
   const l = lstEnsure();
@@ -3542,6 +3551,7 @@ async function lstOpen(it){
   if (it.k === "ex") { exStart(it.fid, { ...it.q }); return; }
   if (!P || P.id !== it.pid || P.ex || P.frag) await openPiece(it.pid);
   if (!P || P.id !== it.pid) { setStatus("Couldn't open " + it.ptitle); return; }
+  if ((it.tr || 0) !== (P.tr || 0)) await trSet(it.tr || 0);      // the list item is in its own key
   for (let n = 0; n < 30 && !(practice.data && practice.id === P.id); n++) await new Promise(r => setTimeout(r, 50));
   const saved = practice.data && practice.data.sections.find(x => sameSection(x, it));
   if (saved) { it.snap = snapOf(saved); lstSave(); }       // the list's copy of its tally is brought up to date whenever it is opened
@@ -3891,7 +3901,10 @@ async function openPiece(id){
   if (!p) return;
   pieceCache.set(id, p);
   await intakeOld(p);
-  setPiece(p);
+  let ps = null; try { ps = JSON.parse(localStorage.getItem("solf-p-" + id) || "null"); } catch (e) {}
+  const tr = ps && ps.tr ? Math.max(-12, Math.min(12, ps.tr | 0)) : 0;
+  if (tr) { const tp = await trPiece(p, tr); setPiece(tp); trFresh(tp); }
+  else setPiece(p);
 }
 
 async function savePiece(p){
@@ -4358,7 +4371,7 @@ async function loadStaff(force){
     const n = piece.src.bars.length, wins = [];
     for (let i0 = 0; ; i0 += SW_STEP) { const i1 = Math.min(n - 1, i0 + SW_BARS - 1); wins.push({ i0, i1 }); if (i1 >= n - 1) break; }
     SW.wins = wins; SW.z = 0;
-    SW.cid = piece.id + (labelMode() === "f" ? "" : "#" + labelMode());
+    SW.cid = piece.id + (piece.tr ? "@" + piece.tr : "") + (labelMode() === "f" ? "" : "#" + labelMode());
     let cached = null; try { cached = await localLib.getStaff(SW.cid); } catch (e) {}
     if (my !== staffBusy) return;
     if (cached && cached.key === SW.key && cached.wins.length === wins.length) { SW.wins = cached.wins; SW.z = cached.z; }
@@ -4651,6 +4664,7 @@ async function loadPractice(p){
   if (lt) { d.tags = lt.tags; d.tagsRejected = lt.rej || []; practice.dirty = true; }
   practice.data = d;
   if (local && local.bpm && !d.bpm) d.bpm = local.bpm;
+  if (local && local.keys) { d.keys = Object.assign({}, d.keys || {}, local.keys); if (practice.side) practice.dirty = true; }
   if (!p.ex && P && P.id === p.id && d.bpm >= BPM_MIN && d.bpm <= BPM_MAX) {
     let have = null; try { have = JSON.parse(localStorage.getItem("solf-p-" + p.id) || "null"); } catch (e) {}
     if (!(have && have.bpm) && S.bpm !== d.bpm) { S.bpm = Math.round(d.bpm / 2) * 2; syncUI(); }       // nothing remembered here: use the one in the practice file
@@ -4672,7 +4686,7 @@ async function flushPractice(ask){
   }
   try {
     if (wrote) { localStorage.removeItem("pianissimo-practice-" + id); localStorage.removeItem(TAGSTORE(id)); }
-    else localStorage.setItem("pianissimo-practice-" + id, JSON.stringify({ sections: d.sections, log: d.log, bpm: d.bpm }));
+    else localStorage.setItem("pianissimo-practice-" + id, JSON.stringify({ sections: d.sections, log: d.log, bpm: d.bpm, keys: d.keys }));
   } catch (e) {}
   if (practice.id === id) practice.dirty = false;
   const meta = folderMetas.find(m => m.id === id); if (meta) { meta.saved = d.sections.length; renderLib(); }
@@ -4782,7 +4796,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261112T0946";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261113T1226";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -4984,6 +4998,7 @@ async function updateDbPiece(p){
 /* where the piece's score went: "file" (your folder), "browser" (kept here until the folder can be written to),
    "library" (the library in this browser, or saved with the page), or "none" (only until this page closes) */
 async function persistPiece(p, ask){
+  if (p.tr) return trFingSave(p);      // a piece in another key: its fingering goes in the practice file, the score file is left alone
   const src = p.src || p;
   if (p.id.startsWith("f:")) {
     const path = p.id.slice(2), rec = await localLib.getFile(path);
@@ -5006,6 +5021,146 @@ async function persistPiece(p, ask){
     return "library";
   }
   return "none";
+}
+
+/* ---------- playing a piece in another key ----------
+   The original stays as it is, in its file and in the library. A piece in another key is made from it each time it opens:
+   the notes moved and spelled for the new key (G♭ in D♭ major, not F♯), the score moved for the staff, key changes and
+   chord symbols with them. Of two names for a key, the one with fewer sharps or flats.
+   Fingering is kept per key in the piece's practice file (keys: { "<half steps>": { key, fing } }): suggested once, the
+   first time, then yours as you change it, so the piece opens the same way next time. The score file keeps the original's.
+   The key last chosen is remembered with the piece; a practice-list item keeps its own. */
+const TR_PC = [0, 2, 4, 5, 7, 9, 11], TR_L = "CDEFGAB";
+const TR_MAJ = { "-6": "G♭", "-5": "D♭", "-4": "A♭", "-3": "E♭", "-2": "B♭", "-1": "F", 0: "C", 1: "G", 2: "D", 3: "A", 4: "E", 5: "B", 6: "F♯" };
+const TR_MIN = { "-6": "E♭ minor", "-5": "B♭ minor", "-4": "F minor", "-3": "C minor", "-2": "G minor", "-1": "D minor", 0: "A minor", 1: "E minor", 2: "B minor", 3: "F♯ minor", 4: "C♯ minor", 5: "G♯ minor", 6: "D♯ minor" };
+const fsk = p => "pianissimo-fing-" + p.id + (p.tr ? "@" + p.tr : "");      // where unsaved fingering edits wait, per key
+const trNorm = (f, prefer) => { let x = ((f % 12) + 12) % 12; if (x > 6) x -= 12; if (x === 6 && prefer < 0) x = -6; return x; };
+function trFifths(p, xml){
+  if (xml) { const m = /<fifths>\s*(-?\d+)\s*<\/fifths>/.exec(xml); if (m) { const mo = /<mode>\s*(\w+)\s*<\/mode>/.exec(xml); return { f: +m[1], minor: !!(mo && /minor/i.test(mo[1])) }; } }
+  const ns = (p.src || p).notes; let best = 0, bs = -Infinity;      // no key written (a MIDI file): the major key whose scale holds the most notes
+  for (let f = -6; f <= 6; f++) { const t = ((7 * f) % 12 + 12) % 12, sc = new Set(TR_PC.map(i => (t + i) % 12));
+    const sc2 = ns.reduce((a, n) => a + (sc.has(((n.midi % 12) + 12) % 12) ? 1 : 0), 0) - Math.abs(f) * .01; if (sc2 > bs) { bs = sc2; best = f; } }
+  return { f: best, minor: false };
+}
+/* the new key, and how many letter names each note moves (with the octave): C up a half step is D♭, a letter up; down one is B, a letter down */
+function trPlan(p, xml, tr){
+  const k = trFifths(p, xml), f2 = trNorm(k.f + 7 * tr, k.f !== 0 ? k.f : k.minor ? -1 : 1), df = f2 - k.f, d0 = ((4 * df) % 7 + 7) % 7;
+  let D = d0, err = Infinity; for (const c of [d0 - 14, d0 - 7, d0, d0 + 7, d0 + 14]) { const e = Math.abs(c - tr * 7 / 12); if (e < err) { err = e; D = c; } }
+  return { D, df, f2, minor: k.minor, name: (k.minor ? TR_MIN : TR_MAJ)[f2] };
+}
+function trSpell(midi, alter, tr, D){
+  const nat = midi - (alter || 0), L = TR_L.indexOf(NAT[((nat % 12) + 12) % 12] || "C"), o = Math.floor(nat / 12) - 1;
+  const li = L + D, nl = ((li % 7) + 7) % 7, no = o + Math.floor(li / 7), m = midi + tr;
+  let a = m - ((no + 1) * 12 + TR_PC[nl]);
+  if (Math.abs(a) > 2) a = alterIn(m, 0);      // (a spelling past a double sharp or flat: name it plainly)
+  return { midi: m, alter: a };
+}
+function trXML(xml, tr, pl){
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  if (doc.getElementsByTagName("parsererror").length) return null;
+  const kid = (el, n) => { for (const c of el.children) if (c.nodeName === n) return c; return null; };
+  const put = (par, stepEl, altTag, before, octEl, midi, alter) => {
+    const sp = trSpell(midi, alter, tr, pl.D), nat = sp.midi - sp.alter; let al = kid(par, altTag);
+    stepEl.textContent = NAT[((nat % 12) + 12) % 12]; if (octEl) octEl.textContent = String(Math.floor(nat / 12) - 1);
+    if (sp.alter) { if (!al) { al = doc.createElement(altTag); before ? par.insertBefore(al, before) : stepEl.after(al); } al.textContent = String(sp.alter); } else if (al) al.remove();
+  };
+  for (const pt of [...doc.getElementsByTagName("pitch")]) {
+    const st = kid(pt, "step"), oc = kid(pt, "octave"), al = kid(pt, "alter"); if (!st || !oc) continue;
+    const L = TR_L.indexOf(st.textContent.trim()); if (L < 0) continue;
+    const a = al ? Math.round(+al.textContent) || 0 : 0; put(pt, st, "alter", oc, oc, (+oc.textContent + 1) * 12 + TR_PC[L] + a, a);
+  }
+  for (const [stag, atag] of [["root-step", "root-alter"], ["bass-step", "bass-alter"]]) for (const st of [...doc.getElementsByTagName(stag)]) {
+    const L = TR_L.indexOf(st.textContent.trim()); if (L < 0) continue;
+    const al = kid(st.parentNode, atag), a = al ? Math.round(+al.textContent) || 0 : 0; put(st.parentNode, st, atag, null, null, 60 + TR_PC[L] + a, a);
+  }
+  for (const tag of ["accidental", "fingering"]) for (const e of [...doc.getElementsByTagName(tag)]) e.remove();     // the staff works out accidentals; fingering is written per key
+  for (const f of [...doc.getElementsByTagName("fifths")]) f.textContent = String(trNorm(+f.textContent + pl.df, pl.f2));
+  return serializeScore(doc, xml);
+}
+/* the piece's fingering, written into its score so the staff shows it */
+function trWriteFing(p){
+  if (!p.xml) return;
+  try {
+    const d0 = new DOMParser().parseFromString(p.xml, "application/xml"); for (const e of [...d0.getElementsByTagName("fingering")]) e.remove();
+    const sd = scoreDoc(serializeScore(d0, p.xml), p.source);
+    for (const n of (p.src || p).notes) { const el = n.finger > 0 && sd.els.get(fKey(n)); if (el) writeFinger(sd.doc, el, n.finger, n.fsrc); }
+    p.xml = serializeScore(sd.doc, p.xml);
+  } catch (e) {}
+}
+async function trFingLoad(id, tr){
+  let d = practice.data && practice.id === id ? practice.data : null;
+  if (!d && id.startsWith("f:") && folderHandle) { try { d = JSON.parse(await (await (await sideHandle(id, false)).getFile()).text()); } catch (e) {} }
+  let local = null; try { local = JSON.parse(localStorage.getItem("pianissimo-practice-" + id) || "null"); } catch (e) {}
+  const k = Object.assign({}, d && d.keys || {}, local && local.keys || {});
+  return k[tr] && k[tr].fing || null;
+}
+function trFingSave(p){
+  if (!p.tr || !(practice.data && practice.id === p.id)) return "none";
+  const m = {}; for (const n of (p.src || p).notes) if (n.finger > 0) m[fKey(n)] = [n.finger, n.fsrc || "", n.alt || 0];
+  const k = practice.data.keys || (practice.data.keys = {}); k[p.tr] = { key: p.trName, fing: m, at: localDay() };
+  touchPractice(); return "key";
+}
+async function trPiece(orig, tr){
+  let xml = null; try { xml = await getXML(orig); } catch (e) {}
+  const pl = trPlan(orig, xml, tr), src = orig.src || { bars: orig.bars, notes: orig.notes };
+  const notes = src.notes.map(n => { const sp = trSpell(n.midi, n.alter || 0, tr, pl.D);
+    return { t: n.st ?? n.t, d: n.d, midi: sp.midi, hand: n.hand, finger: 0, v: n.v, alter: sp.alter, fsrc: "", alt: 0 }; });
+  const p = finishPiece({ id: orig.id, title: orig.title, composer: orig.composer, kind: orig.kind, source: orig.source, tempo: orig.tempo,
+    handsGuessed: orig.handsGuessed, quantize: 0, bars: src.bars.map(b => { const c = { ...b }; if (b.sstart !== undefined) c.start = b.sstart; delete c.sstart; return c; }), notes });
+  Object.assign(p, { defaultBpm: orig.defaultBpm, facts: orig.facts, tr, trName: pl.name, keyName: pl.name, orig, xml: xml ? trXML(xml, tr, pl) || "" : null });
+  const saved = await trFingLoad(orig.id, tr);
+  if (saved) for (const n of p.notes) { const v = saved[fKey(n)]; if (v) { n.finger = v[0]; n.fsrc = v[1]; n.alt = v[2] || 0; } }
+  const blank = p.notes.filter(n => !(n.finger > 0));
+  if (blank.length) { try { planFingering({ notes: p.notes }); } catch (e) {} blank.forEach(n => { if (n.finger > 0) n.fsrc = "sug"; }); }
+  p.hasFingering = p.notes.some(n => n.finger > 0);
+  trWriteFing(p);
+  p.trNew = !saved;
+  return p;
+}
+/* the first time in a key, the suggested fingering is saved, so it stays the same next time */
+async function trFresh(p){
+  if (!p.trNew) return;
+  for (let n = 0; n < 40 && !(practice.data && practice.id === p.id); n++) await new Promise(r => setTimeout(r, 50));
+  if (P === p) { trFingSave(p); p.trNew = false; }
+}
+async function trSet(tr){
+  if (!P || P.ex || P.frag) return;
+  tr = Math.max(-12, Math.min(12, tr | 0));
+  if ((P.tr || 0) === tr) return;
+  const orig = P.orig || P;
+  if (FE.piece === P && FE.dirty) await saveFingering(P, false);
+  setStatus("Moving it to the new key…");
+  const p = tr ? await trPiece(orig, tr) : orig;
+  if (!tr) { p.keyName = undefined; }
+  setPiece(p); save(); loadStaff(true);
+  rec({ e: "key", id: p.id, tr, key: p.trName || "" });
+  setStatus(tr ? `${p.title} in ${p.trName}, ${Math.abs(tr)} half step${Math.abs(tr) > 1 ? "s" : ""} ${tr > 0 ? "up" : "down"}` : `${p.title} in its own key`);
+  trFresh(p);
+}
+async function trRefinger(){
+  const p = P; if (!p || !p.tr) return;
+  for (const n of p.src.notes) if (n.fsrc !== "mine") { n.finger = 0; n.fsrc = ""; n.alt = 0; }
+  try { planFingering(p.src); } catch (e) {}
+  p.src.notes.forEach(n => { if (n.finger > 0 && n.fsrc !== "mine") n.fsrc = "sug"; });
+  for (const c of p.notes) { const m = srcOf(c); if (m) { c.finger = m.finger; c.fsrc = m.fsrc; c.alt = m.alt; } }
+  trWriteFing(p); trFingSave(p);
+  if (FE.piece === p) { FE.ready = null; FE.doc = null; FE.els = null; }
+  renderDrops(); updateFingUI(); loadStaff(true);
+  setStatus(`Fresh fingering suggested for ${p.trName}; your own changes kept`);
+}
+function trPopFill(){
+  const pop = $("exPop"), p = P, orig = p.orig || p; pop.textContent = "";
+  pop.append(mkEl("div", "pop-h", "Key"));
+  pop.append(mkEl("div", "pop-hint", p.tr ? `${p.trName}, moved ${Math.abs(p.tr)} half step${Math.abs(p.tr) > 1 ? "s" : ""} ${p.tr > 0 ? "up" : "down"}. ‹ › move it a half step at a time.`
+    : "This is the piece's own key. ‹ › move it a half step at a time."));
+  if (p.tr) {
+    const back = mkEl("button", "chip", "Back to the original key"); back.type = "button";
+    back.onclick = () => { exPopShut(); trSet(0); };
+    const ref = mkEl("button", "chip", "Suggest fingering again for this key"); ref.type = "button";
+    ref.onclick = () => { exPopShut(); trRefinger(); };
+    const r = mkEl("div", "pop-row"); r.append(back, ref); pop.append(r);
+    pop.append(mkEl("div", "pop-hint", "Fingering is kept for each key separately. Your changes in this key stay; the original's stay in the score file."));
+  }
 }
 
 /* ---------- the fingering editor ---------- */
@@ -5063,7 +5218,7 @@ function applyEdit(n, f, quiet){
   FE.dirty++; FE.stale = true;
   FE.ops.push({ k: fKey(n), f });
   if (!quiet) rec({ e: "finger", note: fKey(n), name: n.name, f: n.finger, src: n.fsrc || "printed" });
-  try { localStorage.setItem("pianissimo-fing-" + P.id, JSON.stringify(FE.ops)); } catch (e) {}
+  try { localStorage.setItem(fsk(P), JSON.stringify(FE.ops)); } catch (e) {}
   if (!quiet) {
     if (stepIdx >= 0) { clearMarks(); mark(ON[stepIdx], Infinity); }
     renderDrops(); updateFingUI();
@@ -5081,10 +5236,11 @@ async function saveFingering(p, ask){
   const n = FE.dirty;
   let where = "error";
   try { where = await persistPiece(p, ask); } catch (e) {}
-  if (where !== "error" && where !== "none") { try { localStorage.removeItem("pianissimo-fing-" + p.id); } catch (e) {} }
+  if (where !== "error" && where !== "none") { try { localStorage.removeItem(fsk(p)); } catch (e) {} }
   if (FE.piece === p && where !== "error") { FE.dirty = Math.max(0, FE.dirty - n); if (!FE.dirty) { FE.ops = []; FE.snap = null; } }
   if (P === p) updateFingUI();
-  setStatus(where === "file" ? `Fingering saved into ${p.id.slice(2).split("/").pop()}`
+  setStatus(where === "key" ? `Fingering for ${p.trName} saved with your practice`
+    : where === "file" ? `Fingering saved into ${p.id.slice(2).split("/").pop()}`
     : where === "library" ? "Fingering saved with the piece"
     : where === "browser" ? "Fingering kept in this browser; it goes into the score file once the player may write to your folder"
     : where === "copy" ? "Fingering saved in the player's copy (a MIDI file has no place for it)"
@@ -5099,7 +5255,7 @@ function feRevert(p, quiet){
   for (const c of p.notes) { const m = p.srcKey ? p.srcKey.get(fKey(c)) : null; if (m) { c.finger = m.finger; c.fsrc = m.fsrc; c.alt = m.alt; } }
   p.xml = sn.xml;
   FE.snap = null; FE.dirty = 0; FE.ops = []; FE.stale = false; FE.doc = null; FE.els = null; FE.ready = null;
-  try { localStorage.removeItem("pianissimo-fing-" + p.id); } catch (e) {}
+  try { localStorage.removeItem(fsk(p)); } catch (e) {}
   if (P === p && !quiet) { if (stepIdx >= 0) { clearMarks(); mark(ON[stepIdx], Infinity); } renderDrops(); updateFingUI(); loadStaff(true); }
   rec({ e: "fing-discard", id: p.id });
 }
@@ -5117,13 +5273,13 @@ function feLeave(){
 }
 /* changes made but not saved when the page closed come back the next time the piece opens */
 async function recoverEdits(p){
-  let ops = null; try { ops = JSON.parse(localStorage.getItem("pianissimo-fing-" + p.id) || "null"); } catch (e) {}
+  let ops = null; try { ops = JSON.parse(localStorage.getItem(fsk(p)) || "null"); } catch (e) {}
   if (!Array.isArray(ops) || !ops.length) return;
   await feDoc(); if (P !== p) return;
   if (!P.srcKey) srcOf(P.src.notes[0]);
   let n = 0;
   for (const op of ops) { const note = P.srcKey.get(op.k); if (note) n += applyEdit(note, op.f, true); }
-  if (!n) { try { localStorage.removeItem("pianissimo-fing-" + p.id); } catch (e) {} return; }
+  if (!n) { try { localStorage.removeItem(fsk(p)); } catch (e) {} return; }
   if (stepIdx >= 0) { clearMarks(); mark(ON[stepIdx], Infinity); }
   renderDrops(); updateFingUI();
   await saveFingering(p, false);
