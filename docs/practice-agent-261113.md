@@ -36,10 +36,22 @@ How Keith learns: find the smallest sequence that fails (a thumb crossing, a cha
 - **Fold it back:** after a few clean, steady passes of the micro-loop it widens to the section by itself. If the spot breaks again, it's offered again.
 - This needs each pass to keep where its stumbles and wrong notes were (step numbers), not only how many.
 
+## Wobbles: reading the stuck place in variations (Keith's idea, better than a plain loop for reading)
+
+Play through once or a few times. Where it stumbled, the next pass inserts small variations of the stuck cell (the two or three notes around the trouble), moved within the key: one step up, one down, then 1 up 2 down, 2 up 1 down, 2 up 2 down. Then it rolls back into the piece a note or two before the spot, or carries on the pattern if it's still stumbling (with a cap, so it never traps you).
+
+- A loop played six times gets memorised and stops being read; variations that shift each time can't be, so they must be read. And it happens inside the flow of the piece, with no stopping to set up a drill.
+- **The fingering planner makes the templates; watching the playing drives the response, pass after pass.** A variant must keep what made the spot hard: a thumb crossing must stay a crossing. Variants that become an easy five-finger position are dropped. Moving by a step changes where the black keys fall, so the same motion is met in slightly different forms, which makes it sturdier.
+- **Which response, from the kind of stumble:** a long pause before correct notes is usually reading or deciding: wobbles. Wrong notes, or unevenness right after: usually the fingers: the plain micro-loop. The record can tell them apart.
+- **A wrong note is itself a stuck spot.** With strict Wait for me, a wrong note backs up and replays the motion; the same spot failing twice starts the wobbles there.
+- **Wait for me first** (no tempo, so insertion is simple). In playback the inserted notes must fit the beat and appear on the staff in time; the hard-moves drill's fragment building can be reused.
+- **As a game, away from any piece:** slow hand-position shifts with reading required. A five-finger position shows on the staff, moves up a step, down two, and so on; you read and play each.
+
 ## First slice
 
 - Pass lines record where stumbles and wrong notes happened.
-- The stuck-spot finder and micro-loop in the coach.
+- Strict wrong-note handling in Wait for me.
+- The stuck-spot finder, with wobbles and the micro-loop, in Wait for me.
 - The agent summary and named actions in the page, read-only except **propose a practice list**, which the player accepts or refuses.
 - Try "help me get to The Entertainer" with Claude in Chrome, and learn what an agent actually needs before giving it more.
 
