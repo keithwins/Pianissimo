@@ -4796,7 +4796,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261113T1226";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261113T1345";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -4823,7 +4823,7 @@ function rec(o, ts){
   const day = (typeof PL !== "undefined" && PL.d.cur ? plSafe(PL.d.cur) + "_" : "") + yymmdd();     // the file: player and day
   if (day !== REC.day) {
     REC.day = day; REC.t0 = performance.now();
-    REC.buf.push([day, JSON.stringify({ e: "session", at: localStamp(), build: BUILD, player: typeof PL !== "undefined" ? PL.d.cur || null : null, piece: P ? { id: P.id, title: P.title } : null, sound: S.out,
+    REC.buf.push([day, JSON.stringify({ e: "session", format: 1, at: localStamp(), build: BUILD, player: typeof PL !== "undefined" ? PL.d.cur || null : null, piece: P ? { id: P.id, title: P.title } : null, sound: S.out,
       keyboard: midiOut ? midiOut.name || "" : "", note: "t is milliseconds since this session line" })]);
   }
   const t = Math.round(((ts || performance.now()) - REC.t0) * 10) / 10;
@@ -4855,6 +4855,63 @@ async function appendDay(day, text){
   const w = await fh.createWritable({ keepExistingData: true });
   await w.seek(size); await w.write(text); await w.close();
 }
+/* ---------- sealing the record ----------
+   Session records are only ever added to. Each write ends with a seal line: a fingerprint (SHA-256) of the lines it covers
+   together with the previous seal's fingerprint, so the seals form a chain. Changing or removing anything already sealed
+   breaks the chain from there on, and shows. Each computer (browser) keeps its own chain, named by a device id, so two
+   machines writing into one shared folder don't tangle. The first seal on a device also fingerprints every session file
+   already there, so history from before sealing began is covered from that day on.
+   A seal: { e: "seal", v: 1, dev, n, at, lines, files?, prev, h }; h = SHA-256(prev + "\n" + the `lines` lines above it,
+   each with its newline + JSON of { dev, n, at, lines, files? }). files: { name: [SHA-256 of its first L characters, L] }.
+   This proves the record wasn't changed after it was written, not that the playing was real; see docs/session-log-format-261113.md. */
+async function recSha(t){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
+function chainDev(){
+  let d = ""; try { d = localStorage.getItem("pianissimo-device") || ""; } catch (e) {}
+  if (!d) { d = "d-" + Math.random().toString(36).slice(2, 10); try { localStorage.setItem("pianissimo-device", d); } catch (e) {} }
+  return d;
+}
+function chainHead(){ try { const h = JSON.parse(localStorage.getItem("pianissimo-chain-head") || "null"); if (h && h.h) return h; } catch (e) {} return { n: 0, h: "" }; }
+async function sealFor(text, folderOK){
+  if (!(window.crypto && crypto.subtle) || !text) return { line: "", next: null };
+  const head = chainHead(), n = head.n + 1, lines = text.split("\n").filter(Boolean).length;
+  let files = null;
+  if (!head.h && folderOK) {      // the first seal on this device: what was already there
+    files = {};
+    try { const dir = await sessionDir(true); for await (const [name, fh] of dir.entries()) if (fh.kind === "file" && /\.jsonl$/.test(name)) { const t = await (await fh.getFile()).text(); files[name] = [await recSha(t), t.length]; } } catch (e) {}
+  }
+  const body = { dev: chainDev(), n, at: localStamp(), lines, ...(files ? { files } : {}) };
+  const h = await recSha(head.h + "\n" + text + JSON.stringify(body));
+  return { line: JSON.stringify({ e: "seal", v: 1, ...body, prev: head.h, h }) + "\n", next: { n, h } };
+}
+function sealDone(sl){ if (sl && sl.next) { try { localStorage.setItem("pianissimo-chain-head", JSON.stringify(sl.next)); } catch (e) {} } }
+/* a record is never edited: a fix is a new line saying what it corrects ("player", "removed", …) and why */
+function recCorrect(what, detail){ rec({ e: "correction", what, ...(detail || {}) }); }
+/* walk every seal in the folder's session files: for each device, how many seals, which don't match what they cover,
+   which point back to a seal that isn't there (a gap: lost, or still waiting in a browser), and whether the files
+   fingerprinted when sealing began still start the same way. For the "check my history" view to come. */
+async function chainCheck(){
+  if (!folderHandle) return null;
+  const dir = await sessionDir(false), by = {}, texts = {};
+  for await (const [name, fh] of dir.entries()) if (fh.kind === "file" && /\.jsonl$/.test(name)) texts[name] = await (await fh.getFile()).text();
+  for (const name in texts) {
+    const ls = texts[name].split("\n");
+    for (let i = 0; i < ls.length; i++) {
+      let o = null; try { o = JSON.parse(ls[i]); } catch (e) {} if (!o || o.e !== "seal") continue;
+      const body = { dev: o.dev, n: o.n, at: o.at, lines: o.lines, ...(o.files ? { files: o.files } : {}) };
+      const ok = i >= o.lines && await recSha(o.prev + "\n" + ls.slice(i - o.lines, i).map(x => x + "\n").join("") + JSON.stringify(body)) === o.h;
+      let early = true;
+      if (o.files) for (const f in o.files) { const t = texts[f]; if (t === undefined || await recSha(t.slice(0, o.files[f][1])) !== o.files[f][0]) early = false; }
+      (by[o.dev] = by[o.dev] || []).push({ n: o.n, h: o.h, prev: o.prev, ok, early, file: name, at: o.at });
+    }
+  }
+  const out = {};
+  for (const dev in by) {
+    const ss = by[dev], hs = new Set(ss.map(x => x.h)), ats = ss.map(x => x.at).sort();
+    out[dev] = { seals: ss.length, from: ats[0], to: ats[ats.length - 1], changed: ss.filter(x => !x.ok).map(x => [x.file, x.n]),
+      gaps: ss.filter(x => x.prev && !hs.has(x.prev)).map(x => [x.file, x.n]), earlierChanged: ss.some(x => !x.early) };
+  }
+  return out;
+}
 async function flushRec(force){     // force: also look for session lines held in the browser, even with nothing new to write
   clearTimeout(REC.timer); REC.timer = 0;
   if (REC.busy || (!REC.buf.length && !force)) return;
@@ -4866,12 +4923,13 @@ async function flushRec(force){     // force: also look for session lines held i
     let ok = false;
     if (canFile) {
       try {
-        const held = await localLib.getSess(d);   // anything that waited in the browser goes first
-        await appendDay(d, (held || "") + text); ok = true;
+        const held = await localLib.getSess(d);   // anything that waited in the browser goes first (sealed already)
+        const sl = await sealFor((held || "") + text, true);
+        await appendDay(d, (held || "") + text + sl.line); sealDone(sl); ok = true;
         if (held) await localLib.delSess(d);
       } catch (e) {}
     }
-    if (!ok) { try { await localLib.addSess(d, text); } catch (e) {} }
+    if (!ok) { try { const sl = await sealFor(text, false); await localLib.addSess(d, text + sl.line); sealDone(sl); } catch (e) {} }
   }
   if (canFile) {     // other days that waited in the browser
     try { for (const d of await localLib.sessDays()) if (!byDay.has(d)) { const held = await localLib.getSess(d); if (held) { await appendDay(d, held); await localLib.delSess(d); } } } catch (e) {}
