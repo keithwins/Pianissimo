@@ -3,6 +3,7 @@
 Things agreed but not built yet. Remove each once it's done.
 
 - **Key colors too faint (Keith, 261113).** Keys marking notes about to be played are tinted with only 32% of the hand colour on white keys (`.wk.hint-r` / `.wk.hint-l`, `color-mix … 32%`), which washes out on his screen. Add a "Key colors" strength slider under Settings, Show (from the faint tint to full colour; raise the default), and right- and left-hand colour pickers that recolour keys, falling notes and staff marks together (stored as overrides of `--rh` / `--lh`; the first piece of colour skins).
+- **Intervals, a mode of Landmarks (Keith, 261113).** A note shows; the prompt says "up a 3rd" (or down); play the answer. Teach interval size first (on the staff a 2nd is line to space, a 3rd line to line or space to space), in C. After each answer show both readings side by side: the staff's ("a 2nd, line to space") and the keyboard's ("a half step, E to F"), so it's visible that same-looking intervals can be half or whole steps. Later: in a key (up a 3rd in D major is F♯), naming the interval between two shown notes, hearing two notes and playing them, and stacking 3rds into triads as the bridge to harmony practice.
 
 ## Offered, not decided
 
