@@ -17,7 +17,9 @@ Each session starts with a header; every other line has `t`, milliseconds since 
 | e | When | Fields |
 |---|---|---|
 | `session` | start of a session (new day or player) | `format` (1), `at` (local time), `build`, `player`, `piece` {id, title}, `sound`, `keyboard` |
-| `on`, `off`, `ped` | every key down, key up, pedal | `m` (MIDI note), `v` (velocity / pedal value) |
+| `on`, `off` | every key down and up | `m` (MIDI note), `v` (velocity, on); `r` (release velocity, off, when the keyboard sends it) |
+| `ped`, `sost`, `soft` | the sustain, middle and soft pedals | `v` (0–127; values between show half-pedalling) |
+| `pass` | a pass through a section in Wait for me | `item`, `name`, `steps`, `even` (timing spread, %), `bpm` (tempo played), `stumbles`, `vsd` (velocity spread), `vmean`, `wrong`, `secs` |
 | `set` | settings changed | the settings |
 | `piece` | a piece opened | `id`, `title`, `bars` |
 | `key` | a piece moved to another key | `id`, `tr` (half steps), `key` |

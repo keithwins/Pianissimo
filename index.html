@@ -738,6 +738,7 @@ body.live-fing .fing-row{display:none!important}
     <div class="ps-card" role="dialog" aria-label="Settings">
       <div class="ps-head"><h2>Settings</h2><button class="pbtn icon soft" id="psClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
       <div class="ps-grp"><div class="ps-lab">Practice</div><div class="ps-box"><div class="ps-row" id="psCount"></div><div class="ps-row" id="psClick"></div><div class="ps-row" id="psRep"></div></div></div>
+      <div class="ps-grp"><div class="ps-lab">Coach</div><div class="ps-box"><div class="ps-row" id="psCoach"></div><div class="ps-row" id="psCoachWhen"></div><div class="ps-row" id="psCoachSize"></div><div class="ps-row" id="psCoachShow"></div><div class="ps-row" id="psCoachPts"></div></div></div>
       <div class="ps-grp"><div class="ps-lab">Show</div><div class="ps-box"><div class="ps-row flush" id="psShow"></div></div></div>
       <div class="ps-grp" id="psKeysGrp"><div class="ps-lab">Keyboard and sound</div><div class="ps-box"><div class="ps-row" id="psMidi"></div><div class="ps-row" id="psOut"></div><div class="ps-row" id="psInfo"></div></div></div>
       <div class="ps-grp"><div class="ps-lab">Practice lists</div><div class="ps-box"><div class="ps-row" id="psLists"></div></div></div>
@@ -793,6 +794,16 @@ body.live-fing .fing-row{display:none!important}
   <span><b>Your music folder isn't connected.</b> Practice is only being kept in this browser.</span>
   <button class="chip" id="folderNagGo" type="button">Reconnect</button><button class="chip" id="folderNagLater" type="button">Later</button>
 </div>
+
+<style>
+.coach{position:fixed;z-index:35;max-width:min(92vw,380px);padding:8px 34px 8px 12px;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 6px 22px var(--shadow);font-size:.9rem;line-height:1.35;cursor:grab;touch-action:none;transition:opacity .5s}
+.coach.drag{cursor:grabbing;transition:none}.coach.fade{opacity:0}
+.coach .co-first{font-weight:500}.coach.more .co-line+.co-line{color:var(--muted);margin-top:2px}
+.coach-x{position:absolute;top:4px;right:4px;border:0;background:none;color:var(--muted);font-size:.95rem;cursor:pointer;padding:4px 6px}
+#psCoachShow{gap:14px;justify-content:flex-start}#psCoachPts{gap:8px}
+</style>
+<div class="coach" id="coach" hidden role="status" aria-live="polite"><div id="coachBody"></div><button class="coach-x" id="coachX" type="button" aria-label="Hide the coach">✕</button></div>
 
 <section class="games" id="games" hidden aria-label="Games">
   <div class="g-top">
@@ -2046,7 +2057,7 @@ function syncUI(){
 function setPiece(p){
   if (P && p !== P) { try { save(); } catch (e) {} }     // the piece being left keeps its working tempo and section
   if (playing) stop();
-  stopAuto(); waitK = -1; passes = 0; $("waitInfo").textContent = "";
+  stopAuto(); waitK = -1; passes = 0; $("waitInfo").textContent = ""; coachSummary(); pmReset(true);
   if (FE.piece && FE.piece !== p) feLeave();
   if (!p.ex && !p.frag) DRILLFROM = null;           // a real piece is open again: nothing to go back to
   if (!p.src) { p.notes.forEach(n => { n.st = n.t; }); p.src = { bars: p.bars, notes: p.notes }; }
@@ -2439,7 +2450,7 @@ function onMidi(e){
   else if (cmd === 0xb0 && d[1] === 64) pedal(d[2] >= 64);
 }
 function showPress(m, on){ if (keyEl[m]) keyEl[m].classList.toggle("press", on); if (GK.el[m]) GK.el[m].classList.toggle("press", on); }
-function keyDown(m, vel, ts){ if (reachCap) reachNote(m); held.add(m); showPress(m, true); liveOn(m, vel || 80); keyAfter(); if (G.on) gKey(m, vel || 80, ts || performance.now()); else if (FE.on) feKey(m); else waitHear(m); }
+function keyDown(m, vel, ts){ if (reachCap) reachNote(m); held.add(m); showPress(m, true); liveOn(m, vel || 80); keyAfter(); if (G.on) gKey(m, vel || 80, ts || performance.now()); else if (FE.on) feKey(m); else waitHear(m, vel); }
 function keyUp(m){ held.delete(m); showPress(m, false); liveOff(m); }
 function keyAfter(){ if (typeof harmLive === "function") harmLive(); }
 
@@ -2536,7 +2547,7 @@ function soundTheirs(o){
 }
 function stopAuto(){ if (autoT) { clearTimeout(autoT); autoT = null; } early.clear(); chainAt = 0; }
 function enterWait(k){
-  stopAuto(); waitK = -1; passT0 = 0; extra = 0; LS.ons.length = 0;     // whatever the microphone heard before this doesn't count
+  stopAuto(); waitK = -1; passT0 = 0; extra = 0; LS.ons.length = 0; pmReset(true);     // whatever the microphone heard before this doesn't count
   if (!waitOn() || !P) return;
   const t = findMine(k);
   if (t < 0) { setStatus(`Wait for me: this section has no ${S.wait === "r" ? "right" : "left"}-hand notes`); return; }
@@ -2554,17 +2565,18 @@ function setTarget(k){
   rec({ e: "want", k, bar: P.bars[o.bar].label, st: o.st, m: [...need], hands: S.wait });
   if (got.size === need.size) satisfied();
 }
-function waitHear(m){
+function waitHear(m, vel){
   if (!waitOn()) return;
-  if (autoT) { early.add(m); return; }        // played a little early, while the other hand was still going
+  if (autoT) { early.add(m); if (vel) PM.vel.push(vel); return; }        // played a little early, while the other hand was still going
   if (waitK < 0) return;
-  if (need.has(m)) { got.add(m); if (got.size === need.size) satisfied(); }
+  if (need.has(m)) { if (vel && !got.has(m)) PM.vel.push(vel); got.add(m); if (got.size === need.size) satisfied(); }
   else extra++;
 }
 function satisfied(){
   const k = waitK;
   rec({ e: "got", k });
   if (!passT0) passT0 = performance.now();
+  pmStep(k);
   waitK = -1; chainAt = 0;
   soundTheirs(ON[k]);
   carryOn(k);
@@ -2573,7 +2585,7 @@ function satisfied(){
 function carryOn(k){
   let n = k + 1;
   if (k > S.b && k >= ON.length - 1) { finishWait("Reached the end of the piece · press Start or tap a note to go again"); return; }
-  if (k > S.b && S.loop) { passT0 = 0; extra = 0; fullPass = true; n = S.a; }   // strayed past the end of the section: back into it, not on to the end of the piece
+  if (k > S.b && S.loop) { passT0 = 0; extra = 0; fullPass = true; n = S.a; pmReset(); }   // strayed past the end of the section: back into it, not on to the end of the piece
   else if (k === S.b) {
     if (fullPass && passT0) {
       passes++;
@@ -2581,14 +2593,16 @@ function carryOn(k){
       const time = secs < 60 ? secs.toFixed(1) + " s" : Math.floor(secs / 60) + " min " + Math.round(secs % 60) + " s";
       $("waitInfo").textContent = `Pass ${passes}: ${time} · ${extra} extra note${extra === 1 ? "" : "s"}`;
       logPractice({ kind: "wait", hands: S.wait, seconds: Math.round(secs * 10) / 10, extra });
+      passDone(secs);
     }
-    passT0 = 0; extra = 0; fullPass = true;
+    passT0 = 0; extra = 0; fullPass = true; pmReset();
     if (!S.loop) { if (!closingOnce()) { finishWait(); return; } }      // (Once on an exercise goes on to its closing note, and ends there)
     else n = S.a;
   }
   if (mine(ON[n]).length) { setTarget(n); return; }
   const now = performance.now(), due = (chainAt || now) + gapAfter(k) * 60 / S.bpm * 1000;
   chainAt = due;
+  PM.auto = true;      // the other hand plays this step: the time to the next step of yours isn't all yours
   autoT = setTimeout(() => {
     autoT = null;
     const o = ON[n];
@@ -2599,12 +2613,14 @@ function carryOn(k){
   }, Math.max(0, due - now));
 }
 function finishWait(msg){
+  coachSummary();
   stopAuto(); waitK = -1; clearMarks();
   setStatus(msg || "Finished the section · press Start, Step, or tap a note to go again");
 }
 function syncWaitUI(){ $("wait").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.w === S.wait))); }
 $("wait").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.w === "off") coachSummary();
   S.wait = b.dataset.w; passes = 0; $("waitInfo").textContent = ""; syncWaitUI();
   if (midiState !== "on" && navigator.requestMIDIAccess && midiAllowedHere()) connectMidi();
   if (S.wait !== "off" && LS.want && !LS.on) listenStart();
@@ -4788,6 +4804,195 @@ function logPractice(entry){
 }
 
 /* =====================================================================
+   Measuring each pass, points, and the coach (first version, 261113)
+   In Wait for me, Pianissimo knows which notes each step wants and when you played them, so each pass is measured:
+   - timing: each step's gap since your last step, against the beats the music says pass. Steady playing keeps that
+     constant at whatever pace you choose; its spread (as a percentage) is how uneven you were, and its middle is the
+     tempo you really played. A gap over 2½ times your usual is a stumble, not unevenness.
+   - touch: the spread of your key velocities (0–127), and their average.
+   - accuracy: wrong notes.
+   Each measured pass goes into the session record as a "pass" line. Points are worked out from those lines by the rules in
+   scorePass; the running state kept in the browser is only a convenience, and "Count again from the record" rebuilds it.
+   ===================================================================== */
+const PM = { gaps: [], vel: [], lastK: -1, lastT: 0, auto: false };
+function pmReset(all){ PM.gaps = []; PM.vel = []; if (all) { PM.lastK = -1; PM.lastT = 0; PM.auto = false; } }
+function pmStep(k){
+  const t = performance.now();
+  if (PM.lastK >= 0 && !PM.auto && ON[PM.lastK]) { const beats = ON[k].t - ON[PM.lastK].t; if (beats > 1e-6) PM.gaps.push([t - PM.lastT, beats]); }
+  PM.lastK = k; PM.lastT = t; PM.auto = false;
+}
+const pmMed = a => { if (!a.length) return 0; const b = a.slice().sort((x, y) => x - y), h = b.length >> 1; return b.length % 2 ? b[h] : (b[h - 1] + b[h]) / 2; };
+const pmSd = a => { if (a.length < 2) return 0; const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((x, y) => x + (y - m) * (y - m), 0) / (a.length - 1)); };
+function pmMeasure(){
+  const r = PM.gaps.map(([ms, b]) => ms / b).filter(x => x > 0), med = pmMed(r), ok = r.filter(x => x <= med * 2.5);
+  const mean = ok.length ? ok.reduce((x, y) => x + y, 0) / ok.length : 0, v = PM.vel;
+  return { steps: r.length + 1, even: ok.length >= 4 && mean ? Math.round(pmSd(ok) / mean * 1000) / 10 : null, bpm: med ? Math.round(60000 / med) : null,
+    stumbles: r.length - ok.length, vsd: v.length >= 4 ? Math.round(pmSd(v) * 10) / 10 : null, vmean: v.length ? Math.round(v.reduce((x, y) => x + y, 0) / v.length) : null, wrong: extra };
+}
+function passItem(){
+  if (P.ex) return { id: ["ex", P.ex.fid, JSON.stringify(P.ex.q), S.wait].join("|"), name: P.title };
+  const from = P.bars[ON[S.a].bar].label, to = P.bars[ON[S.b].bar].label;
+  return { id: [P.id, P.tr || 0, from, to, S.wait].join("|"), name: P.title + (P.tr ? " in " + P.trName : "") + (S.a === 0 && S.b === ON.length - 1 ? "" : ` · bars ${from}–${to}`) };
+}
+function passDone(secs){
+  if (!P) return;
+  const it = passItem(), ev = { e: "pass", item: it.id, name: it.name, ...pmMeasure(), secs: Math.round(secs * 10) / 10 };
+  rec(ev);
+  const sc = scorePass(scState(), ev, Date.now()); scSave();
+  coachPass(ev, sc);
+}
+
+/* ---------- points: the rules, version 1 (a first draft; past playing can be counted again whenever they change) ----------
+   - Each pass earns a little (10), less with each repeat of the same thing in a day (the 10th repeat earns about half).
+   - The first two passes of an item each day are warm-up: wrong notes there don't cost anything.
+   - The real points are for moving your best on that item, on clean passes (no wrong notes): first clean pass 50; steadier
+     than your best 30; faster than your best while about as steady 30; a more even touch 20.
+   - Back to an item after 3 days or more and still clean, in the first passes of the day: up to 40 (retention).
+   - Moving on to something else (not played in the last 5 minutes) earns 3: mixing things up builds sturdier skill.
+   - An item that has been clean and steady (timing within 12%) on 3 different days is mastered: its everyday points drop
+     to a third. A return after days away still earns in full. */
+const SCORE_RULES = 1;
+const scDays = (a, b) => Math.round((new Date(b + "T12:00") - new Date(a + "T12:00")) / 864e5);
+function scorePass(st, ev, at){
+  const day = localDay(new Date(at)), it = st.items[ev.item] || (st.items[ev.item] = { best: {}, cleanDays: [] });
+  if (!it.today || it.today.day !== day) it.today = { day, n: 0 };
+  it.today.n++;
+  const warm = it.today.n <= 2, clean = !ev.wrong, why = [], b = it.best, mastered = it.cleanDays.length >= 3;
+  const rep = Math.max(0, it.today.n - 2);
+  let pts = (clean || warm ? 10 : 3) / (1 + rep / 8) * (mastered ? 1 / 3 : 1);
+  const steadyAs = (e, best) => e != null && (best == null || e <= Math.max(best * 1.2, best + 2));
+  if (clean) {
+    if (!b.any) { pts += 50; why.push("First clean pass"); }
+    else {
+      if (ev.even != null && b.even != null && ev.even < b.even - .3 && !(b.bpm && ev.bpm && ev.bpm < b.bpm * .9)) { pts += 30; why.push(`Steadier than your best (${b.even}% → ${ev.even}%)`); }
+      if (ev.bpm && b.bpm && ev.bpm > b.bpm * 1.02 && steadyAs(ev.even, b.even)) { pts += 30; why.push(`Faster than your best, as steady (♩ ${b.bpm} → ${ev.bpm})`); }
+      if (ev.vsd != null && b.vsd != null && ev.vsd < b.vsd - .3) { pts += 20; why.push(`More even touch (spread ${b.vsd} → ${ev.vsd})`); }
+    }
+    if (it.lastDay && it.today.n <= 3) { const gap = scDays(it.lastDay, day); if (gap >= 3) { pts += Math.round(40 * Math.min(gap, 14) / 14 + 10); why.push(`Back after ${gap} days, and still clean`); } }
+    b.any = true;
+    if (ev.even != null && (b.even == null || ev.even < b.even)) b.even = ev.even;
+    if (ev.bpm && (!b.bpm || ev.bpm > b.bpm) && steadyAs(ev.even, b.even)) b.bpm = ev.bpm;
+    if (ev.vsd != null && (b.vsd == null || ev.vsd < b.vsd)) b.vsd = ev.vsd;
+    if (ev.even != null && ev.even <= 12 && !it.cleanDays.includes(day)) { it.cleanDays.push(day); if (it.cleanDays.length > 10) it.cleanDays.shift(); }
+  }
+  if (st.prevItem && st.prevItem !== ev.item && (!it.lastAt || at - it.lastAt > 300000)) { pts += 3; why.push("Mixed it up"); }
+  it.lastDay = day; it.lastAt = at; st.prevItem = ev.item;
+  pts = Math.round(pts);
+  st.total = (st.total || 0) + pts;
+  if (!st.day || st.day.d !== day) st.day = { d: day, pts: 0 }; st.day.pts += pts;
+  return { pts, why, warm, mastered: it.cleanDays.length >= 3, today: st.day.pts, total: st.total };
+}
+const SCK = () => "pianissimo-score-" + (PL.d.cur || "");
+let SC = null, SCwho = null;
+function scState(){
+  if (SC && SCwho === PL.d.cur) return SC;
+  SCwho = PL.d.cur; SC = null;
+  try { SC = JSON.parse(localStorage.getItem(SCK()) || "null"); } catch (e) {}
+  if (!SC || SC.rules !== SCORE_RULES) SC = { rules: SCORE_RULES, items: {}, total: 0 };
+  return SC;
+}
+function scSave(){ try { localStorage.setItem(SCK(), JSON.stringify(SC)); } catch (e) {} }
+/* the points, worked out again from every "pass" line in this player's session files, in order */
+async function rescore(){
+  await flushRec(true);
+  if (!folderHandle) return null;
+  const who = PL.d.cur || "", pre = "Pianissimo_session_" + (who ? plSafe(who) + "_" : ""), names = [];
+  const dir = await sessionDir(false);
+  for await (const [name, fh] of dir.entries()) if (fh.kind === "file" && name.startsWith(pre) && /_\d{6}\.jsonl$/.test(name) && (who || /^Pianissimo_session_\d{6}\.jsonl$/.test(name))) names.push(name);
+  names.sort((a, b) => a.slice(-12).localeCompare(b.slice(-12)));
+  const st = { rules: SCORE_RULES, items: {}, total: 0 }; let n = 0;
+  for (const name of names) {
+    const text = await (await (await dir.getFileHandle(name)).getFile()).text(); let base = 0;
+    for (const line of text.split("\n")) {
+      let o = null; try { o = JSON.parse(line); } catch (e) {} if (!o) continue;
+      if (o.e === "session") base = Date.parse(o.at) || base;
+      else if (o.e === "pass" && o.item) { scorePass(st, o, base + (o.t || 0)); n++; }
+    }
+  }
+  SC = st; SCwho = PL.d.cur; scSave();
+  return { passes: n, total: st.total };
+}
+
+/* ---------- the coach card ----------
+   A small card that speaks at the end of a pass, never in the middle of one. Drag it anywhere; near an edge it sticks
+   to the edge. What it talks about, when, and how much are set under Settings, Coach. It fades by itself. */
+const CO = { on: true, when: "pass", size: "line", show: { acc: true, time: true, touch: true, tempo: true, pts: true }, pos: null, held: [] };
+try { const c = JSON.parse(localStorage.getItem("pianissimo-coach") || "null"); if (c) { Object.assign(CO, c, { show: Object.assign({}, CO.show, c.show || {}), held: [] }); } } catch (e) {}
+const coSave = () => { try { const { held, ...keep } = CO; localStorage.setItem("pianissimo-coach", JSON.stringify(keep)); } catch (e) {} };
+function coachText(ev, sc){
+  const parts = [], sh = CO.show;
+  if (sh.acc) parts.push(ev.wrong ? `${ev.wrong} wrong note${ev.wrong > 1 ? "s" : ""}` + (sc.warm ? " (warm-up)" : "") : "no wrong notes");
+  if (sh.time && ev.even != null) parts.push(`timing within ${ev.even}%` + (ev.stumbles ? `, ${ev.stumbles} stumble${ev.stumbles > 1 ? "s" : ""}` : ""));
+  if (sh.touch && ev.vsd != null) parts.push(`touch spread ${ev.vsd}`);
+  if (sh.tempo && ev.bpm) parts.push(`♩ ${ev.bpm}`);
+  return parts;
+}
+function coachPass(ev, sc){
+  if (!CO.on) return;
+  if (CO.when === "stop") { CO.held.push([ev, sc]); return; }
+  if (CO.when === "change" && !sc.why.length && !ev.wrong) return;
+  const m = coachText(ev, sc), pts = CO.show.pts ? `+${sc.pts}` + (CO.size === "more" ? ` · ${sc.today} today` : "") : "";
+  if (CO.size === "line") coachSay([(sc.why[0] && CO.show.pts ? sc.why[0] : m.slice(0, 2).join(" · ")) + (pts ? "  " + pts : "")], 6000);
+  else coachSay([ev.name, m.join(" · "), ...(CO.show.pts ? sc.why : []), pts].filter(Boolean), 10000);
+}
+function coachSummary(){
+  const h = CO.held.splice(0); if (!CO.on || !h.length) return;
+  const ev = h.map(x => x[0]), pts = h.reduce((a, x) => a + x[1].pts, 0), clean = ev.filter(e => !e.wrong).length;
+  const ev2 = ev.filter(e => e.even != null).map(e => e.even), why = [...new Set(h.flatMap(x => x[1].why))];
+  coachSay([`${h.length} pass${h.length > 1 ? "es" : ""}, ${clean} clean` + (ev2.length ? ` · timing best ${Math.min(...ev2)}%` : ""), ...(CO.show.pts ? why.slice(0, 3) : []), CO.show.pts ? `+${pts} · ${h[h.length - 1][1].today} today` : ""].filter(Boolean), 12000);
+}
+let coachT = 0;
+function coachSay(lines, ms){
+  const c = $("coach"), body = $("coachBody"); body.textContent = "";
+  lines.forEach((l, i) => body.append(mkEl("div", i ? "co-line" : "co-line co-first", l)));
+  c.classList.toggle("more", lines.length > 1); c.hidden = false; c.classList.remove("fade"); coachPlace();
+  clearTimeout(coachT); coachT = setTimeout(function f(){ if (c.matches(":hover")) { coachT = setTimeout(f, 1500); return; } c.classList.add("fade"); coachT = setTimeout(() => { c.hidden = true; }, 600); }, ms);
+}
+function coachPlace(){
+  const c = $("coach"); if (c.hidden) return;
+  const w = c.offsetWidth, h = c.offsetHeight, W = innerWidth, H = innerHeight;
+  const p = CO.pos || { x: 1, y: .82 };
+  c.style.left = Math.round(Math.max(6, Math.min(W - w - 6, p.x * (W - w)))) + "px";
+  c.style.top = Math.round(Math.max(6, Math.min(H - h - 6, p.y * (H - h)))) + "px";
+}
+addEventListener("resize", coachPlace);
+(function coachDrag(){
+  const c = $("coach"); let d = null;
+  c.addEventListener("pointerdown", e => { if (e.target.closest("button")) return; d = { x: e.clientX - c.offsetLeft, y: e.clientY - c.offsetTop }; c.setPointerCapture(e.pointerId); c.classList.add("drag"); });
+  c.addEventListener("pointermove", e => { if (!d) return; c.style.left = (e.clientX - d.x) + "px"; c.style.top = (e.clientY - d.y) + "px"; });
+  c.addEventListener("pointerup", () => {
+    if (!d) return; d = null; c.classList.remove("drag");
+    const w = c.offsetWidth, h = c.offsetHeight, W = innerWidth, H = innerHeight;
+    let x = c.offsetLeft / Math.max(1, W - w), y = c.offsetTop / Math.max(1, H - h);
+    if (c.offsetLeft < 40) x = 0; if (W - (c.offsetLeft + w) < 40) x = 1; if (c.offsetTop < 40) y = 0; if (H - (c.offsetTop + h) < 40) y = 1;      // near an edge: stick to it
+    CO.pos = { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) }; coSave(); coachPlace();
+  });
+  $("coachX").addEventListener("click", () => { c.hidden = true; clearTimeout(coachT); });
+})();
+/* Settings, Coach */
+function coachSettings(){
+  const seg = (id, key, items) => { const row = $(id); row.textContent = "";
+    const box = mkEl("span", "seg"); items.forEach(([v, t]) => { const b = mkEl("button", "", t); b.type = "button"; b.setAttribute("aria-pressed", String(CO[key] === v));
+      b.onclick = () => { CO[key] = v; coSave(); coachSettings(); }; box.append(b); });
+    row.append(box); };
+  seg("psCoach", "on", [[true, "Coach on"], [false, "Off"]]);
+  seg("psCoachWhen", "when", [["pass", "After each pass"], ["change", "When something changes"], ["stop", "When I stop"]]);
+  seg("psCoachSize", "size", [["line", "One line"], ["more", "More"]]);
+  const sh = $("psCoachShow"); sh.textContent = "";
+  [["acc", "Wrong notes"], ["time", "Timing"], ["touch", "Touch"], ["tempo", "Tempo"], ["pts", "Points"]].forEach(([k, t]) => {
+    const l = mkEl("label", "check"), i = document.createElement("input"); i.type = "checkbox"; i.checked = !!CO.show[k];
+    i.onchange = () => { CO.show[k] = i.checked; coSave(); }; l.append(i, document.createTextNode(t)); sh.append(l); });
+  const pr = $("psCoachPts"); pr.textContent = "";
+  const st = scState(), today = st.day && st.day.d === localDay() ? st.day.pts : 0;
+  const txt = mkEl("span", "g-hint", `Points${PL.d.cur ? " for " + PL.d.cur : ""}: ${today} today, ${st.total || 0} in all. First version of the rules: they may change, and then everything is counted again from your record.`);
+  const again = mkEl("button", "chip", "Count again from the record"); again.type = "button";
+  again.onclick = async () => { again.disabled = true; const r = await rescore().catch(() => null); again.disabled = false;
+    setStatus(r ? `Counted again: ${r.passes} passes, ${r.total} points` : "Couldn't read the record: the music folder isn't connected"); coachSettings(); };
+  const place = mkEl("button", "chip", "Put the card back"); place.type = "button"; place.onclick = () => { CO.pos = null; coSave(); coachPlace(); };
+  pr.append(txt, again, place);
+}
+
+/* =====================================================================
    Session recorder
    Everything that happens while you play, note by note: each key you press
    and release (when, to the millisecond, and how hard), the pedal, what the
@@ -4796,7 +5001,7 @@ function logPractice(entry){
    Sessions/Pianissimo_session_Keith_261026.jsonl (player and day), one line per event. Until the
    folder can be written to, the lines wait in this browser.
    ===================================================================== */
-const BUILD = "261113T1345";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
+const BUILD = "261113T1409";   /* yymmddThhmm in the local time of whoever made the change (no zone letter, on purpose); refreshed with every change */
 
 /* ---------- version line, and a note when a newer version has been published ---------- */
 (function(){
@@ -4817,7 +5022,13 @@ const BUILD = "261113T1345";   /* yymmddThhmm in the local time of whoever made 
   }
   check(); document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); });
 })();
-const REC = { t0: 0, day: "", buf: [], timer: 0, busy: false, last: "" };
+const REC = { t0: 0, day: "", buf: [], inflight: [], timer: 0, busy: false, last: "" };
+/* every line is also kept at once in the browser's quick storage until it is safely written, so closing the page abruptly
+   (a crash, the power going) loses nothing; next time, those lines are written first. Only unwritten lines are kept there,
+   so it stays small. (A crash in the instant after a write can repeat a few lines; they are exact repeats.) */
+let recJT = false;
+function recJournal(){ if (recJT) return; recJT = true; queueMicrotask(() => { recJT = false; try { localStorage.setItem("pianissimo-rec-journal", JSON.stringify(REC.inflight.concat(REC.buf))); } catch (e) {} }); }
+try { const j = JSON.parse(localStorage.getItem("pianissimo-rec-journal") || "null"); if (Array.isArray(j) && j.length) { REC.buf.push(...j); recJournal(); REC.timer = setTimeout(() => flushRec(), 4000); } } catch (e) {}
 const yymmdd = (d = new Date()) => String(d.getFullYear()).slice(2) + pad2(d.getMonth() + 1) + pad2(d.getDate());
 function rec(o, ts){
   const day = (typeof PL !== "undefined" && PL.d.cur ? plSafe(PL.d.cur) + "_" : "") + yymmdd();     // the file: player and day
@@ -4828,14 +5039,18 @@ function rec(o, ts){
   }
   const t = Math.round(((ts || performance.now()) - REC.t0) * 10) / 10;
   REC.buf.push([day, JSON.stringify({ t, ...o })]);
+  recJournal();
   if (!REC.timer) REC.timer = setTimeout(flushRec, 10000);
 }
 /* the raw keyboard: every note on and off, and the pedal */
 function recMidi(d, ts){
   const cmd = d[0] & 0xf0;
   if (cmd === 0x90 && d[2] > 0) { rec({ e: "on", m: d[1], v: d[2] }, ts); plTick(); }
-  else if (cmd === 0x80 || cmd === 0x90) rec({ e: "off", m: d[1] }, ts);
+  else if (cmd === 0x80) rec({ e: "off", m: d[1], ...(d[2] ? { r: d[2] } : {}) }, ts);      // r: how fast the key was let go, if the keyboard sends it
+  else if (cmd === 0x90) rec({ e: "off", m: d[1] }, ts);
   else if (cmd === 0xb0 && d[1] === 64) rec({ e: "ped", v: d[2] }, ts);
+  else if (cmd === 0xb0 && d[1] === 66) rec({ e: "sost", v: d[2] }, ts);       // the middle (sostenuto) pedal
+  else if (cmd === 0xb0 && d[1] === 67) rec({ e: "soft", v: d[2] }, ts);       // the soft pedal
 }
 /* settings, when they've changed and settled */
 function recSettings(){
@@ -4916,7 +5131,7 @@ async function flushRec(force){     // force: also look for session lines held i
   clearTimeout(REC.timer); REC.timer = 0;
   if (REC.busy || (!REC.buf.length && !force)) return;
   REC.busy = true;
-  const lines = REC.buf.splice(0), byDay = new Map();
+  const lines = REC.buf.splice(0), byDay = new Map(); REC.inflight = lines;
   for (const [d, l] of lines) byDay.set(d, (byDay.get(d) || "") + l + "\n");
   const canFile = !!folderHandle && await canWriteFolder(false);
   for (const [d, text] of byDay) {
@@ -4934,7 +5149,7 @@ async function flushRec(force){     // force: also look for session lines held i
   if (canFile) {     // other days that waited in the browser
     try { for (const d of await localLib.sessDays()) if (!byDay.has(d)) { const held = await localLib.getSess(d); if (held) { await appendDay(d, held); await localLib.delSess(d); } } } catch (e) {}
   }
-  REC.busy = false;
+  REC.busy = false; REC.inflight = []; recJournal();
   if (REC.buf.length && !REC.timer) REC.timer = setTimeout(flushRec, 10000);
 }
 addEventListener("pagehide", () => flushRec());
@@ -6720,7 +6935,7 @@ if (window.ResizeObserver) new ResizeObserver(() => layoutDrops()).observe($("kb
   document.addEventListener("keydown", e => { if (e.key === "Escape") { closePops(); $("psheet").hidden = true; } });
 
   /* settings sheet */
-  $("setBtn").addEventListener("click", e => { e.stopPropagation(); closePops(); $("psheet").hidden = false; });
+  $("setBtn").addEventListener("click", e => { e.stopPropagation(); closePops(); coachSettings(); $("psheet").hidden = false; });
   $("psClose").addEventListener("click", () => { $("psheet").hidden = true; });
   $("psheet").addEventListener("click", e => { if (e.target === $("psheet")) $("psheet").hidden = true; });
 
