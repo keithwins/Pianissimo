@@ -47,6 +47,37 @@ Play through once or a few times. Where it stumbled, the next pass inserts small
 - **Wait for me first** (no tempo, so insertion is simple). In playback the inserted notes must fit the beat and appear on the staff in time; the hard-moves drill's fragment building can be reused.
 - **As a game, away from any piece:** slow hand-position shifts with reading required. A five-finger position shows on the staff, moves up a step, down two, and so on; you read and play each.
 
+## Talking with the agent at the piano
+
+The microphone here is for speech with the agent. Hands are busy at the piano, so voice is the natural channel, and the agent follows the playing live through the record.
+
+- **It speaks between passes**, the coach card's rule: never inside a passage.
+- **Listening:** the piano itself would set off speech detection, but Pianissimo knows from MIDI exactly when notes are sounding, so the microphone is ignored during notes and listened to in the gaps. For a deliberate "I want to…", a spare pedal or a key combination works as push-to-talk.
+- **"Held"** comes from continuity more than from the voice: knowing yesterday's work, the player's own reasons, noticing a return after days away, and keeping it short.
+
+## Wobbles and good reading habits
+
+Fluent readers keep their eyes ahead of their hands, a beat to a bar. Wobbles that appear only just before they're needed would train note-by-note reading, the habit to escape. So:
+
+- Wobbles are written into the staff itself, in the piece's key, rhythm and notation, not a separate pop-up: read the same way as the piece.
+- They appear at least a bar ahead and stay; the distance grows as the player improves, deliberately stretching the eye-hand span.
+- A small mark shows a variation is coming, so it isn't a jolt.
+- No keyboard hints during wobbles (the eyes would drop to the hands).
+- The pulse goes on: in playback the tempo may ease, never stop.
+- Warm, not gamey: a quiet "again, a step up", not dings.
+- Wobbling scales and exercises is an option, not the default.
+
+## Learners, parents, teachers, friends
+
+The learner owns the record; everyone else has a slot with its own permissions:
+
+- **Parent:** progress, rewards, wish lists (the parent code exists already).
+- **Teacher:** the detailed record; assigns pieces and lists, sets wobble and strictness options, comments.
+- **Friend:** summaries, boards.
+- **Agent:** one more slot.
+
+Teachers, parents and agents all act the same way: they **propose**, and the learner (or a parent, for a child) accepts, with both in the record. Built once, that serves all of them. Moving data between computers is the harder part: a shared folder per learner and teacher first; a server later (the same ladder as witnesses and live scoring, see docs/coach-and-points-261113.md and the session log note).
+
 ## First slice
 
 - Pass lines record where stumbles and wrong notes happened.
